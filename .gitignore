@@ -2,4 +2,5 @@
 *.pyc
 venv
 db
+tests/db
 frontend-starter-kit
