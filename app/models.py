@@ -1,43 +1,32 @@
-# -*- coding: utf-8 -*-
+import os, sys
 
-import os
-import sys
-import sqlalchemy as alch
-from sqlalchemy.orm import scoped_session, sessionmaker, relationship, backref
+from sqlalchemy import create_engine
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
-
-db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../db/db.sqlite'))
-engine = alch.create_engine('sqlite:///%s' % db_path, convert_unicode=True)
-db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=False,
-                                         bind=engine))
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship, backref
 
 Base = declarative_base()
-Base.query = db_session.query_property()
 
+engine = create_engine('sqlite:///%s' % config.DB_PATH, echo=True)
+metadata = schema.MetaData()
 
-class Person(Base):
-    __tablename__ = 'person'
-    id = alch.Column(alch.Integer, primary_key=True)
-    name = alch.Column(alch.String)
+class User(Base):
+    __tablename__ = 'users'
 
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    username = Column(String)
+    password = Column(String)
 
-def to_dict(instance):
-    return {c.name: str(getattr(instance, c.name)) for c in instance.__table__.columns}
+    def __init__(self, name, username, password):
+        self.name = name
+        self.username = username
+        self.password = hashlib.sha1(password).hexdigest()
 
-#class Department(Base):
-#    __tablename__ = 'department'
-#    id = alch.Column(alch.Integer, primary_key=True)
-#    name = alch.Column(alch.String)
+    def __repr__(self):
+        return "User('%s','%s', '%s')" % \
+        (self.name, self.username, self.password)
 
-#class Employee(Base):
-#    __tablename__ = 'employee'
-#    id = alch.Column(alch.Integer, primary_key=True)
-#    name = alch.Column(alch.String)
-#    hired_on = alch.Column(alch.DateTime, default=alch.func.now())
-#    department_id = alch.Column(alch.Integer, alch.ForeignKey('department.id'))
-#    department = relationship(
-#        Department,
-#        backref=backref('employees',
-#                        uselist=True,
-#                        cascade='delete,all'))
+Base.metadata.create_all(engine)
+
