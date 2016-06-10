@@ -1,53 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import inspect
-
 import graphene
-import models
-from models import db_session
-from models import Person as PersonModel
+#import models
+#from models import db_session
+#from models import Person as PersonModel
 #from models import Department as DepartmentModel
 #from models import Employee as EmployeeModel
 
-'''
-class Query(graphene.ObjectType):
-    hello = graphene.String(description='A typical hello world')
-    ping = graphene.String(description='Ping someone',
-                           to=graphene.String())
-
-    def resolve_hello(self, args, info):
-        return 'World'
-
-    def resolve_ping(self, args, info):
-        return 'Pinging {}'.format(args.get('to'))
-
-schema = graphene.Schema(query=Query)
-'''
-
-'''
-class IPerson(graphene.Interface):
-    id = graphene.ID()
-    name = graphene.String()
-
-
-
-class Person(graphene.ObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-
-    @classmethod
-    def create(cls, row):
-        """create a person from person_model.
-        """
-        #a = inspect.getargspec(eat_dog)
-        #print inspect.getargspec(Person.__init__)
-        #return Person(
-        #    id = row.id,
-        #    name = row.name,
-        #)
-        #print dict(row)
-        return Person(**models.to_dict(row))
-'''
 
 class InvalidError(Exception):
     def __init__(self, message, code=0):
@@ -86,6 +46,9 @@ class Person(graphene.ObjectType):
     modified_at = graphene.String()
     created_at = graphene.String()
 
+    def create(self):
+        print "==create=="
+        print dir(self)
 
 class Query(graphene.ObjectType):
     gender = graphene.Field(Gender)
@@ -93,47 +56,54 @@ class Query(graphene.ObjectType):
     find_person = graphene.Field(Person)
 
     def resolve_find_person(self, args, info):
-        raise InvalidError('Hello World Error')
+        #raise InvalidError('Hello World Error')
         return Person(name='Peter', address='this is address')
 
 
-class BaseMutation(graphene.Mutation):
-    # response interface
+class CreatePerson(graphene.Mutation):
     ok = graphene.Boolean()
     message = graphene.String()
-
-
-class CreatePerson(BaseMutation):
     result = graphene.Field('Person')
 
     class Input:
+        social_id = graphene.String()
         name = graphene.String()
+        phone = graphene.String()
+        address = graphene.String()
+        email = graphene.String()
         gender = Gender()
 
     @classmethod
     def mutate(cls, instance, args, info):
-        try:
-            kw = {}
-            for field in ('name', 'gender', 'phone'):
-                if field == 'gender' and args.get(field) == 'unknow':
-                    return BaseMutation(ok=False, message='unknow gender')
+        print "==mutate=="
+        print instance
+        print args
+        print info
+        kw = {}
+        for field in (
+                'social_id',
+                'name',
+                'phone',
+                'address',
+                'email',
+                'gender',
+            ):
+            if field in args:
+                kw[field] = args.get(field)
 
-                for field in args:
-                    kw[field] = args.get(field)
-
-            if kw:
-                person = Person(**kw)
-                ok = True
-                return CreatePerson(
-                    ok=ok,
-                    result=person
-                )
-        except Exception as e:
-            return BaseMutation(ok=False, message=str(e))
+        if kw:
+            person = Person(**kw)
+            person.create()
+            ok = True
+            return CreatePerson(
+                ok=ok,
+                result=person
+            )
 
 
 class MyMutations(graphene.ObjectType):
     create_person = graphene.Field(CreatePerson)
+
 
 class InvalidErrorMiddleware(object):
     @classmethod
@@ -142,14 +112,12 @@ class InvalidErrorMiddleware(object):
             return next(root, args, context, info)
         except InvalidError as e:
             raise e
-            #print '[error]', e.message
-            #return None
-            #return
-
+            # print '[error]', e.message
+            # return None
+            # return
 
 schema = graphene.Schema(
     query=Query,
     mutation=MyMutations,
     middlewares=[InvalidErrorMiddleware]
 )
-

@@ -63,6 +63,7 @@ class SchemaTestCase(unittest.TestCase):
 
 
     def test_update_person(self):
+        """Test updatePerson."""
         query = '''
             query {
                 findPerson {
