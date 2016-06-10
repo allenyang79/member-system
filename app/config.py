@@ -29,6 +29,11 @@ def load_config(custom_args=None):
     else:
         args = parser.parse_args(custom_args)
 
+    # default
+    m = __import__('configs.default', fromlist=['default'])
+    config.update(m.config)
+
+    # by args.config
     m = __import__('configs.%s' % args.config, fromlist=[args.config])
     config.update(m.config)
 
