@@ -5,11 +5,9 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship, backref
+from app.config import config
 
 Base = declarative_base()
-
-engine = create_engine('sqlite:///%s' % config.DB_PATH, echo=True)
-metadata = schema.MetaData()
 
 class User(Base):
     __tablename__ = 'users'
@@ -28,5 +26,8 @@ class User(Base):
         return "User('%s','%s', '%s')" % \
         (self.name, self.username, self.password)
 
-Base.metadata.create_all(engine)
 
+def init():
+    print config['DB_PATH']
+    engine = create_engine('sqlite:///%s' % config['DB_PATH'], echo=True)
+    Base.metadata.create_all(engine)
