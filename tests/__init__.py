@@ -3,11 +3,11 @@ import os, sys
 import re
 import unittest
 from app.config import config, load_config
-from app import models
+from app import db
 
 def setup():
     load_config(['--config', 'test', '--debug'])
-    models.init()
+    db.init()
 
 def teardown():
     if re.search(r'tests\/db',config['DB_PATH']):

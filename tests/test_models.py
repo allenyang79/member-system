@@ -4,7 +4,7 @@ import sys
 import unittest
 
 from app.config import config
-from app.models import session
+from app.db import session
 from app.models import Person
 from app.models import PersonEvent
 
