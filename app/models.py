@@ -1,35 +1,98 @@
 import os
 import sys
 import weakref
+import datetime
 
 from app.db import db
 
 
-class Field(object):
-    def __init__(self):
-        pass
+class InvalidError(Exception):
+    def __init__(self, message):
+        super(InvalidError, self).__init__(message)
 
+
+class Field(object):
     def __get__(self, instance, cls):
-        if instance and self.field_key in instance.attrs:
-            return instance.attrs[self.field_key]
-        else:
-            return None
+        if instance:
+            if self.field_key in instance.attrs:
+                return instance.attrs[self.field_key]
+            else:
+                return None
 
     def __set__(self, instance, value):
-        #self.values[instance] = value
         instance.attrs[self.field_key] = value
 
-    def register(self, cls, field_key):
+    def _register(self, cls, field_key):
         self.field_key = field_key
-        cls._config[field_key] = {}
+        cls._config[field_key] = self
 
 
 class IDField(Field):
-    def register(self, cls, field_key):
-        self.field_key = field_key
-        cls._config[field_key] = {
-            'primary_key': True
-        }
+    pass
+
+
+class IntField(Field):
+    def __get__(self, instance, cls):
+        if instance:
+            if self.field_key not in instance.attrs:
+                instance.attrs[self.field_key] = 0
+            return instance.attrs[self.field_key]
+
+    def __set__(self, instance, value):
+        if not isinstance(value, int):
+            raise InvalidError('`IntField` must assign a `int` value')
+        instance.attrs[self.field_key] = int(value)
+
+
+class StringField(Field):
+    def __get__(self, instance, cls):
+        if instance:
+            if self.field_key not in instance.attrs:
+                instance.attrs[self.field_key] = ''
+            return instance.attrs[self.field_key]
+
+    def __set__(self, instance, value):
+        if not isinstance(value, basestring):
+            raise InvalidError('`StringField` must assign a `string` value')
+        instance.attrs[self.field_key] = str(value)
+
+class DateField(Field):
+    def __get__(self, instance, cls):
+        if instance:
+            if self.field_key not in instance.attrs:
+                instance.attrs[self.field_key] = None
+            return instance.attrs[self.field_key]
+
+    def __set__(self, instance, value):
+        if not isinstance(value, datetime.datetime):
+            raise InvalidError('`DateField` must assign a `Date` value')
+        instance.attrs[self.field_key] = value
+
+
+class ListField(Field):
+    def __get__(self, instance, cls):
+        if instance:
+            if self.field_key not in instance.attrs:
+                instance.attrs[self.field_key] = []
+            return instance.attrs[self.field_key]
+
+    def __set__(self, instance, value):
+        if not isinstance(value, iter):
+            raise InvalidError('`ListField` must assign a `iter` value')
+        instance.attrs[self.field_key] = list(value)
+
+
+class DictField(Field):
+    def __get__(self, instance, cls):
+        if instance:
+            if self.field_key not in instance.attrs:
+                instance.attrs[self.field_key] = {}
+            return instance.attrs[self.field_key]
+
+    def __set__(self, instance, value):
+        if not isinstance(value, dict):
+            raise InvalidError('`DictField` must assign a `dict` value')
+        instance.attrs[self.field_key] = {}
 
 
 class BaseMeta(type):
@@ -37,7 +100,7 @@ class BaseMeta(type):
         #cls = type.__new__(meta_cls, cls_name, cls_bases, cls_dict)
         for field_key, field in cls_dict.items():
             if isinstance(field, Field):
-                field.register(cls, field_key)
+                field._register(cls, field_key)
 
 
 class Base(object):
@@ -45,14 +108,17 @@ class Base(object):
     _config = {}
 
     @classmethod
-    def find(self, query):
-        for raw in db[cls._table].find(query):
-            yield cls(raw)
-
-    @classmethod
     def get_one(cls, _id=None):
         raw = db[cls._table].find_one({'_id': _id})
         return cls(raw)
+
+    @classmethod
+    def find(self, query={}):
+        """find instance by query
+        """
+        cursor = db[cls._table].find(query)
+        for row in cursor:
+            yield cls(raw)
 
     @classmethod
     def _create(cls, payload):
@@ -89,14 +155,17 @@ class Base(object):
     def get_id(self):
         return self.attrs['_id']
 
-    def save(self):
-
+    def save(self, allow_fields=None):
         cls = type(self)
         payload = {}
-        # process payload
-        for k in self._config:
-            if 'primary_key' in self._config[k] and self.is_new():
-                pass
+
+        fields = set(self._config.keys())
+        if allow_fields:
+            fields = allow_fields & fields
+
+        for k in fields:
+            if self.is_new() and isinstance(self._config[k], IDField):
+                pass  # pass if primary_key
             if k in self.attrs:
                 payload[k] = self.attrs[k]
 
@@ -111,37 +180,52 @@ class Base(object):
 
 class Person(Base):
     _table = 'persons'
-    # register_field('name')
     _id = IDField()
 
-    social_id = Field()
-    name = Field()
-    phone_0 = Field()
-    phone_1 = Field()
-    phone_2 = Field()
+    social_id = StringField()
+    name = StringField()
+    birthday = DateField()
+    gender = StringField()
 
-    address_0 = Field()
-    address_1 = Field()
+    phone_0 = StringField()
+    phone_1 = StringField()
+    phone_2 = StringField()
 
-    email_0 = Field()
-    email_1 = Field()
+    address_0 = StringField()
+    address_1 = StringField()
 
-    education = Field()
-    job = Field()
+    email_0 = StringField()
+    email_1 = StringField()
 
-    register_date = Field()
-    unregister_date = Field()
+    education = StringField()
+    job = StringField()
 
-    baptize_date = Field()
-    baptize_priest = Field()
 
-    gifts = Field()
-    groups = Field()
-    events = Field()
+    register_date = StringField()
+    unregister_date = StringField()
 
-    note = Field()
-    relations = Field()
-    #{rel: 'parent', _id: '1231212'}
+    baptize_date = StringField()
+    baptize_priest = StringField()
+
+    gifts = ListField()
+    groups = ListField()
+    events = ListField()
+    relations = ListField()  # {rel: 'parent', _id: '1231212'}
+
+    note = StringField()
+
+    @classmethod
+    def build_relation(cls, rel, p1, p2):
+        p1.relations.append({
+            'rel': rel,
+            '_id': p2._id
+        })
+        p2.relations.append({
+            'rel': rel,
+            '_id': p1._id
+        })
+        p1.save()
+        p2.save()
 
 
 class Group(Base):
