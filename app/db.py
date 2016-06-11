@@ -1,41 +1,30 @@
 import os
 import sys
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import pymongo
 
 from werkzeug.local import LocalProxy
 from app.config import config
-from app.models import Base
+
 
 def init():
-    global _engine, _session
-    echo = True if config['MODE'] == 'development' else False
-    _engine = create_engine('sqlite:///%s' % config['DB_PATH'], echo=echo)
-    Base.metadata.create_all(_engine)
+    global _db
+    if config['MODE'] == 'test':
+        # run on test mode
+        from mongobox import MongoBox
+        box = MongoBox()
+        box.start()
+        client = box.client()  # pymongo client
+        _db = client[config['DB_NAME']]
+    else:
+        client = MongoClient()
+        _db = client[config['DB_NAME']]
 
-    Session = sessionmaker(bind=engine)
-    _session = Session()
 
-
-def find_engine():
-    if _engine is None:
+def find_db():
+    if _db is None:
         raise Exception('models has not init')
     else:
-        return _engine
+        return _db
 
-
-def find_session():
-    if _session is None:
-        raise Exception('models has not init')
-    else:
-        return _session
-
-_engine = None
-engine = LocalProxy(find_engine)
-
-_session = None
-session = LocalProxy(find_session)
-
-
-
+_db = None
+db = LocalProxy(find_db)
