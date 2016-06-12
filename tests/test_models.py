@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
-import unittest
 import datetime
+import unittest
 
 from app.config import config
 from app.db import db
-#import app.models as models
 from app.models import Person
 from app.models import Group
 
 
-class MyTestCase(unittest.TestCase):
+class TestModel(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -28,6 +27,7 @@ class MyTestCase(unittest.TestCase):
             'name': 'John',
             'phone_0': '0988'
         })
+
         self.assertEqual(p.name, 'John')
         self.assertEqual(p.phone_0, '0988')
 
@@ -37,18 +37,15 @@ class MyTestCase(unittest.TestCase):
         p.phone_1 = '0989'
         self.assertEqual(p.phone_1, '0989')
 
-        p.save()
+        p.birthday = datetime.datetime.strptime('2016-11-12', '%Y-%m-%d')
+        self.assertEqual(p.birthday, datetime.datetime.strptime('2016-11-12', '%Y-%m-%d'))
 
-        p.birthday = datetime.datetime.strptime('2016-11-12','%Y-%m-%d')
-        print p.birthday
-        print p.attrs
         p.save()
-
         raw = db.persons.find_one({'_id': p.get_id()})
-        print raw
-        return
+
         self.assertEqual(raw['name'], 'Bill')
         self.assertEqual(raw['phone_0'], '0988')
+        self.assertEqual(raw['birthday'], datetime.datetime.strptime('2016-11-12', '%Y-%m-%d'))
 
         _p = Person.get_one(p.get_id())
         self.assertEqual(_p.attrs, p.attrs)
@@ -69,9 +66,6 @@ class MyTestCase(unittest.TestCase):
             'rel': 'family',
             '_id': p.get_id()
         }, _p_other.relations)
-
-
-
 
     def test_group(self):
         g = Group.create({

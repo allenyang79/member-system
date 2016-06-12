@@ -2,13 +2,11 @@ import os
 import sys
 import weakref
 import datetime
+import bson
 
 from app.db import db
 
 
-class InvalidError(Exception):
-    def __init__(self, message):
-        super(InvalidError, self).__init__(message)
 
 
 class Field(object):
@@ -28,7 +26,9 @@ class Field(object):
 
 
 class IDField(Field):
-    pass
+    @classmethod
+    def generate_id(cls):
+        return str(bson.ObjectId())
 
 
 class IntField(Field):
@@ -56,6 +56,7 @@ class StringField(Field):
             raise InvalidError('`StringField` must assign a `string` value')
         instance.attrs[self.field_key] = str(value)
 
+
 class DateField(Field):
     def __get__(self, instance, cls):
         if instance:
@@ -73,13 +74,26 @@ class ListField(Field):
     def __get__(self, instance, cls):
         if instance:
             if self.field_key not in instance.attrs:
-                instance.attrs[self.field_key] = []
+                instance.attrs[self.field_key] = list()
             return instance.attrs[self.field_key]
 
     def __set__(self, instance, value):
         if not isinstance(value, iter):
             raise InvalidError('`ListField` must assign a `iter` value')
         instance.attrs[self.field_key] = list(value)
+
+
+class SetField(Field):
+    def __get__(self, instance, cls):
+        if instance:
+            if self.field_key not in instance.attrs:
+                instance.attrs[self.field_key] = set()  # assign a defualt value
+            return instance.attrs[self.field_key]
+
+    def __set__(self, instance, value):
+        if not isinstance(value, iter):
+            raise InvalidError('`ListField` must assign a `iter` value')
+        instance.attrs[self.field_key] = set(value)
 
 
 class DictField(Field):
@@ -97,7 +111,7 @@ class DictField(Field):
 
 class BaseMeta(type):
     def __init__(cls, cls_name, cls_bases, cls_dict):
-        #cls = type.__new__(meta_cls, cls_name, cls_bases, cls_dict)
+        # cls = type.__new__(meta_cls, cls_name, cls_bases, cls_dict)
         for field_key, field in cls_dict.items():
             if isinstance(field, Field):
                 field._register(cls, field_key)
@@ -129,8 +143,9 @@ class Base(object):
 
     @classmethod
     def create(cls, payload={}):
-        payload['_id'] = cls._create(payload)
-        return cls(payload)
+        person = cls(payload)
+        person.save()
+        return person
 
     @classmethod
     def update(cls, _id, payload={}):
@@ -170,7 +185,8 @@ class Base(object):
                 payload[k] = self.attrs[k]
 
         if self.is_new():
-            self.attrs['_id'] = cls.create(payload)
+            payload['_id'] = IDField.generate_id()
+            self.attrs['_id'] = cls._create(payload)
         else:
             cls.update(self.get_id(), payload)
 
@@ -200,19 +216,22 @@ class Person(Base):
     education = StringField()
     job = StringField()
 
-
     register_date = StringField()
     unregister_date = StringField()
 
     baptize_date = StringField()
     baptize_priest = StringField()
 
-    gifts = ListField()
-    groups = ListField()
-    events = ListField()
+    gifts = ListField()     # ['aa', 'bb', 'cc']
+    groups = ListField()    # [group_id, group_id, group_id]
+    events = ListField()    # {date:'', 'title': 'bala...'}
     relations = ListField()  # {rel: 'parent', _id: '1231212'}
 
     note = StringField()
+
+    def get_relations(self):
+        _ids = [row['_id'] for row in self.relations]
+        return Person.find({'_id': {'$in': ids}})
 
     @classmethod
     def build_relation(cls, rel, p1, p2):
