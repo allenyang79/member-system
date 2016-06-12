@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+import functools
 import os
 import sys
 import weakref
@@ -7,22 +10,37 @@ import bson
 from app.db import db
 
 
-
-
 class Field(object):
+    field_key = None
+
+    def __init__(self):
+        pass
+
     def __get__(self, instance, cls):
         if instance:
-            if self.field_key in instance.attrs:
-                return instance.attrs[self.field_key]
-            else:
-                return None
+            if self.field_key not in instance._attrs:
+                instance._attrs[self.field_key] = self.value_default(instance)
+            return self.value_out(instance, instance._attrs[self.field_key])
+        return self
 
     def __set__(self, instance, value):
-        instance.attrs[self.field_key] = value
+        instance._attrs[self.field_key] = self.value_in(instance, value)
 
-    def _register(self, cls, field_key):
+    def register(self, cls, field_key):
         self.field_key = field_key
         cls._config[field_key] = self
+
+    def value_default(self, instance):
+        """The default value of this field."""
+        return None
+
+    def value_in(self, instance, value):
+        """The process from property to assign value in instance._attrs"""
+        return value
+
+    def value_out(self, instance, value):
+        """The process from value in instance._attrs to property."""
+        return value
 
 
 class IDField(Field):
@@ -31,95 +49,75 @@ class IDField(Field):
         return str(bson.ObjectId())
 
 
-class IntField(Field):
-    def __get__(self, instance, cls):
-        if instance:
-            if self.field_key not in instance.attrs:
-                instance.attrs[self.field_key] = 0
-            return instance.attrs[self.field_key]
-
-    def __set__(self, instance, value):
-        if not isinstance(value, int):
-            raise InvalidError('`IntField` must assign a `int` value')
-        instance.attrs[self.field_key] = int(value)
-
-
 class StringField(Field):
-    def __get__(self, instance, cls):
-        if instance:
-            if self.field_key not in instance.attrs:
-                instance.attrs[self.field_key] = ''
-            return instance.attrs[self.field_key]
+    def value_default(self, instance):
+        return ''
 
-    def __set__(self, instance, value):
-        if not isinstance(value, basestring):
-            raise InvalidError('`StringField` must assign a `string` value')
-        instance.attrs[self.field_key] = str(value)
+    def value_in(self, instance, value):
+        return str(value)
+
+    def value_out(self, instance, value):
+        return value
 
 
 class DateField(Field):
-    def __get__(self, instance, cls):
-        if instance:
-            if self.field_key not in instance.attrs:
-                instance.attrs[self.field_key] = None
-            return instance.attrs[self.field_key]
+    def value_default(self, instance):
+        return '1900-01-01'
 
-    def __set__(self, instance, value):
-        if not isinstance(value, datetime.datetime):
-            raise InvalidError('`DateField` must assign a `Date` value')
-        instance.attrs[self.field_key] = value
+    def value_in(self, instance, value):
+        return datetime.datetime.strptime(value, '%Y-%m-%d')
+
+    def value_out(self, instance, value):
+        return value.strftime('%Y-%m-%d')
 
 
 class ListField(Field):
+    def __init__(self, cls=list):
+        self.cls = cls
+    def value_default(self, instance):
+        return self.cls()
+
+
+class ConfigAttr(object):
+    def __init__(self):
+        self.values = {}
+
     def __get__(self, instance, cls):
-        if instance:
-            if self.field_key not in instance.attrs:
-                instance.attrs[self.field_key] = list()
-            return instance.attrs[self.field_key]
+        if cls not in self.values:
+            self.values[cls] = {}
+        return self.values[cls]
 
     def __set__(self, instance, value):
-        if not isinstance(value, iter):
-            raise InvalidError('`ListField` must assign a `iter` value')
-        instance.attrs[self.field_key] = list(value)
+        raise Exception('`ConfigAttr` is readonly.')
 
 
-class SetField(Field):
+class AttrsAttr(object):
+    def __init__(self):
+        self.values = weakref.WeakKeyDictionary()
+
     def __get__(self, instance, cls):
         if instance:
-            if self.field_key not in instance.attrs:
-                instance.attrs[self.field_key] = set()  # assign a defualt value
-            return instance.attrs[self.field_key]
+            if instance not in self.values:
+                self.values[instance] = {}
+            return self.values[instance]
+        raise Exception('AttrsAttr can not work on class level.')
 
-    def __set__(self, instance, value):
-        if not isinstance(value, iter):
-            raise InvalidError('`ListField` must assign a `iter` value')
-        instance.attrs[self.field_key] = set(value)
-
-
-class DictField(Field):
-    def __get__(self, instance, cls):
-        if instance:
-            if self.field_key not in instance.attrs:
-                instance.attrs[self.field_key] = {}
-            return instance.attrs[self.field_key]
-
-    def __set__(self, instance, value):
-        if not isinstance(value, dict):
-            raise InvalidError('`DictField` must assign a `dict` value')
-        instance.attrs[self.field_key] = {}
+    def __set__(self):
+        raise Exception('`AttrsAttr` is readonly.')
 
 
-class BaseMeta(type):
+class Meta(type):
     def __init__(cls, cls_name, cls_bases, cls_dict):
         # cls = type.__new__(meta_cls, cls_name, cls_bases, cls_dict)
         for field_key, field in cls_dict.items():
             if isinstance(field, Field):
-                field._register(cls, field_key)
+                field.register(cls, field_key)
 
 
 class Base(object):
-    __metaclass__ = BaseMeta
-    _config = {}
+    __metaclass__ = Meta
+    _config = ConfigAttr()
+    _attrs = AttrsAttr()
 
     @classmethod
     def get_one(cls, _id=None):
@@ -159,16 +157,16 @@ class Base(object):
         else:
             return False
 
-    def __init__(self, attrs={}):
-        self.attrs = attrs
+    def __init__(self, _attrs={}):
+        self._attrs.update(_attrs)
 
     def is_new(self):
-        if '_id' in self.attrs:
+        if '_id' in self._attrs:
             return False
         return True
 
     def get_id(self):
-        return self.attrs['_id']
+        return self._attrs['_id']
 
     def save(self, allow_fields=None):
         cls = type(self)
@@ -181,17 +179,17 @@ class Base(object):
         for k in fields:
             if self.is_new() and isinstance(self._config[k], IDField):
                 pass  # pass if primary_key
-            if k in self.attrs:
-                payload[k] = self.attrs[k]
+            if k in self._attrs:
+                payload[k] = self._attrs[k]
 
         if self.is_new():
             payload['_id'] = IDField.generate_id()
-            self.attrs['_id'] = cls._create(payload)
+            self._attrs['_id'] = cls._create(payload)
         else:
             cls.update(self.get_id(), payload)
 
     def to_dict(self):
-        return self.attrs
+        return self._attrs
 
 
 class Person(Base):
