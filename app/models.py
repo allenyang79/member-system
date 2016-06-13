@@ -44,7 +44,7 @@ class Field(object):
         """The process from value in instance._attrs to property."""
         return value
 
-    #def value_to_json(self, instance, value):
+    # def value_to_json(self, instance, value):
     # mabey is a good idea. to declare a value that can from db to json
 
 
@@ -64,6 +64,16 @@ class StringField(Field):
     def value_out(self, instance, value):
         return value
 
+class IntField(Field):
+    def value_default(self, instance):
+        return 0
+
+    def value_in(self, instance, value):
+        return int(value)
+
+    def value_out(self, instance, value):
+        return value
+
 
 class DateField(Field):
     def value_default(self, instance):
@@ -72,7 +82,8 @@ class DateField(Field):
     def value_in(self, instance, value):
         if not isinstance(value, datetime.datetime):
             raise TypeError('`DateField` only accept `date` value')
-        return value
+        # return value
+        return value.replace(minute=0, hour=0, second=0, microsecond=0)
 
     def value_out(self, instance, value):
         return value
@@ -125,26 +136,9 @@ class Base(object):
     _attrs = AttrsAttr()
 
     @classmethod
-    def get_one(cls, _id=None):
-        row = db[cls._table].find_one({'_id': _id})
-        return cls(row)
-
-    @classmethod
-    def find(cls, query={}, return_cursr=False):
-        """find instances by query.
-
-        :param dict query:
-        :param function process: a function procss cursor, ex skip, limit, sort. ex: lambda c: c.sort().skip(100).limit(10)
-
-        """
-        root_cursor = db[cls._table].find(query)
-        cursor = process(root_cursor)
-        if return_cursor:
-            return cursor
-
-        for row in cursor:
-            yield cls(row)
-
+    def _find(cls, query={}):
+        """Proxy to db.collection.find."""
+        return db[cls._table].find(query)
 
     @classmethod
     def _insert_one(cls, payload):
@@ -172,6 +166,10 @@ class Base(object):
         else:
             return False
 
+    @classmethod
+    def get_one(cls, _id=None):
+        row = db[cls._table].find_one({'_id': _id})
+        return cls(row)
 
     @classmethod
     def create(cls, payload={}):
@@ -179,9 +177,22 @@ class Base(object):
         person.save()
         return person
 
+    @classmethod
+    def fetch(cls, query={}, sort=None, offset=None, limit=None):
+        cursor = cls._find(query)
+        if sort:
+            cursor = cursor.sort(sort)
+        if offset:
+            cursor = cursor.skip(offset)
+        if limit:
+            cursor = cursor.limit(limit)
+
+        return map(lambda x: cls(x), cursor), cursor.count()
 
     def __init__(self, _attrs={}):
-        self._attrs.update(_attrs)
+        #self._attrs.update(_attrs)
+        for k, v in _attrs.items():
+            setattr(self, k, v)
 
     def is_new(self):
         if '_id' in self._attrs:
@@ -212,6 +223,8 @@ class Base(object):
             cls._update_one({'_id': self.get_id()}, payload)
 
     def to_dict(self):
+        """ a format dictionary.
+        """
         return self._attrs
 
 
@@ -251,8 +264,9 @@ class Person(Base):
     note = StringField()
 
     def get_relations(self):
-        _ids = [row['_id'] for row in self.relations]
-        return Person.find({'_id': {'$in': ids}})
+        pass
+        #_ids = [row['_id'] for row in self.relations]
+        # return Person._find({'_id': {'$in': ids}})
 
     @classmethod
     def build_relation(cls, rel, p1, p2):

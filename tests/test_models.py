@@ -17,11 +17,6 @@ class TestModel(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_db(self):
-        db.tests.insert_one({'name': 'test-name'})
-        r = db.tests.find_one({'name': 'test-name'})
-        self.assertEqual(r['name'], 'test-name')
-
     def test_person(self):
         p = Person.create({
             'name': 'John',
@@ -46,8 +41,8 @@ class TestModel(unittest.TestCase):
         self.assertEqual(raw['birthday'], datetime.datetime.strptime('2016-11-12', '%Y-%m-%d'))
 
         with self.assertRaises(Exception) as ctx:
+            # can only assign datetime object to `birthday`
             p.birthday = 'anything'
-
 
         _p = Person.get_one(p.get_id())
         p_other = Person.create({
@@ -66,8 +61,10 @@ class TestModel(unittest.TestCase):
             '_id': p.get_id()
         }, _p_other.relations)
 
-        for row in Person.find():
-            yield row
+        persons, _ = Person.fetch()
+        for p in persons:
+            self.assertIsInstance(p, Person)
+
 
     def test_group(self):
         return
