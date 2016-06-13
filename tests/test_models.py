@@ -37,7 +37,7 @@ class TestModel(unittest.TestCase):
         p.phone_1 = '0989'
         self.assertEqual(p.phone_1, '0989')
 
-        p.birthday = '2016-11-12' #
+        p.birthday = datetime.datetime.strptime('2016-11-12', '%Y-%m-%d')
         p.save()
 
         raw = db.persons.find_one({'_id': p.get_id()})
@@ -46,7 +46,7 @@ class TestModel(unittest.TestCase):
         self.assertEqual(raw['birthday'], datetime.datetime.strptime('2016-11-12', '%Y-%m-%d'))
 
         with self.assertRaises(Exception) as ctx:
-            p.birthday = '123123'
+            p.birthday = 'anything'
 
 
         _p = Person.get_one(p.get_id())
@@ -65,6 +65,9 @@ class TestModel(unittest.TestCase):
             'rel': 'family',
             '_id': p.get_id()
         }, _p_other.relations)
+
+        for row in Person.find():
+            yield row
 
     def test_group(self):
         return

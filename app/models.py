@@ -7,6 +7,8 @@ import weakref
 import datetime
 import bson
 
+
+from app.error import InvalidError
 from app.db import db
 
 
@@ -42,6 +44,9 @@ class Field(object):
         """The process from value in instance._attrs to property."""
         return value
 
+    #def value_to_json(self, instance, value):
+    # mabey is a good idea. to declare a value that can from db to json
+
 
 class IDField(Field):
     @classmethod
@@ -65,17 +70,17 @@ class DateField(Field):
         return '1900-01-01'
 
     def value_in(self, instance, value):
-        return datetime.datetime.strptime(value, '%Y-%m-%d')
+        if not isinstance(value, datetime.datetime):
+            raise TypeError('`DateField` only accept `date` value')
+        return value
 
     def value_out(self, instance, value):
-        return value.strftime('%Y-%m-%d')
+        return value
 
 
 class ListField(Field):
-    def __init__(self, cls=list):
-        self.cls = cls
     def value_default(self, instance):
-        return self.cls()
+        return []
 
 
 class ConfigAttr(object):
@@ -121,23 +126,52 @@ class Base(object):
 
     @classmethod
     def get_one(cls, _id=None):
-        raw = db[cls._table].find_one({'_id': _id})
-        return cls(raw)
+        row = db[cls._table].find_one({'_id': _id})
+        return cls(row)
 
     @classmethod
-    def find(self, query={}):
-        """find instance by query
+    def find(cls, query={}, return_cursr=False):
+        """find instances by query.
+
+        :param dict query:
+        :param function process: a function procss cursor, ex skip, limit, sort. ex: lambda c: c.sort().skip(100).limit(10)
+
         """
-        cursor = db[cls._table].find(query)
+        root_cursor = db[cls._table].find(query)
+        cursor = process(root_cursor)
+        if return_cursor:
+            return cursor
+
         for row in cursor:
-            yield cls(raw)
+            yield cls(row)
+
 
     @classmethod
-    def _create(cls, payload):
+    def _insert_one(cls, payload):
+        """Proxy to db.collection.insert_one."""
         result = db[cls._table].insert_one(payload)
         if not result.inserted_id:
             raise Exception('create instance fail.')
         return result.inserted_id
+
+    @classmethod
+    def _update_one(cls, query={}, payload={}):
+        """Proxy to db.collection.update_one."""
+        if not query:
+            raise error.InvalidError('can update by empty query.')
+
+        if not payload:
+            raise error.InvalidError('can update by empty payload.')
+
+        result = db[cls._table].update_one(query, {
+            '$set': payload
+        })
+
+        if result.matched_count == 1:
+            return True
+        else:
+            return False
+
 
     @classmethod
     def create(cls, payload={}):
@@ -145,17 +179,6 @@ class Base(object):
         person.save()
         return person
 
-    @classmethod
-    def update(cls, _id, payload={}):
-        if not payload:
-            return True
-        result = db[cls._table].update_one({'_id': _id}, {
-            '$set': payload
-        })
-        if result.matched_count == 1:
-            return True
-        else:
-            return False
 
     def __init__(self, _attrs={}):
         self._attrs.update(_attrs)
@@ -184,9 +207,9 @@ class Base(object):
 
         if self.is_new():
             payload['_id'] = IDField.generate_id()
-            self._attrs['_id'] = cls._create(payload)
+            self._attrs['_id'] = cls._insert_one(payload)
         else:
-            cls.update(self.get_id(), payload)
+            cls._update_one({'_id': self.get_id()}, payload)
 
     def to_dict(self):
         return self._attrs
