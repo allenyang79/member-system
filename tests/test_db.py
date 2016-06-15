@@ -6,8 +6,8 @@ import unittest
 
 from app.config import config
 from app.db import db
-from app.models import Meta, Base
-from app.models import Field, IDField, StringField, IntField, DateField, ListField
+from app.models.base import Meta, Base
+from app.models.base import Field, IDField, StringField, IntField, DateField, ListField
 
 
 class TestDB(unittest.TestCase):
@@ -23,12 +23,10 @@ class TestDB(unittest.TestCase):
         r = db.tests.find_one({'name': 'test-name'})
         self.assertEqual(r['name'], 'test-name')
 
-
-
     def test_base(self):
 
         class Student(Base):
-            _table='students'
+            _table = 'students'
             _id = IDField()
             name = StringField()
             age = IntField()
@@ -37,25 +35,22 @@ class TestDB(unittest.TestCase):
 
         s = Student.create({
             'name': 'Bill',
-            'age' : 10,
-            'birthday': datetime.datetime(2016,6,2),
-            'tags': ['a','b','c']
+            'age': 10,
+            'birthday': datetime.datetime(2016, 6, 2),
+            'tags': ['a', 'b', 'c']
         })
 
         self.assertEqual(s.name, 'Bill')
         self.assertEqual(s.age, 10)
-        self.assertEqual(s.birthday, datetime.datetime(2016,6,2))
+        self.assertEqual(s.birthday, datetime.datetime(2016, 6, 2))
         self.assertEqual(['a', 'b', 'c'], s.tags)
 
         s.tags.append('d')
         self.assertIn('d', s.tags)
         s.save()
 
-
         with self.assertRaises(Exception) as ctx:
             s.birthday = 1234
-
-
 
         s2 = Student.create({
             'name': 'John'
@@ -65,7 +60,6 @@ class TestDB(unittest.TestCase):
 
         ss = Student.get_one(s._id)
         self.assertEqual(ss._attrs, s._attrs)
-
 
         self.assertEqual(s.to_dict(), {
             '_id': s._id,

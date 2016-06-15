@@ -6,8 +6,8 @@ import unittest
 
 from app.config import config
 from app.db import db
-from app.models import Person
-from app.models import Group
+from app.models.base import Person
+from app.models.base import Group
 
 
 class TestModel(unittest.TestCase):
