@@ -1,5 +1,5 @@
-from . import Base
-from . import IDField, StringField, DateField, ListField
+from base import Base
+from base import IDField, StringField, DateField, ListField
 
 class Person(Base):
     _table = 'persons'
@@ -59,4 +59,4 @@ class Group(Base):
     _table = 'groups'
 
     _id = IDField()
-    name = Field()
+    name = StringField()
