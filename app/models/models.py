@@ -41,9 +41,14 @@ class Person(Base):
     note = StringField()
 
     def get_relations(self):
-        pass
-        #_ids = [row['_id'] for row in self.relations]
-        # return Person._find({'_id': {'$in': ids}})
+        rows = {row['_id']: row for row in self.relations}
+        persons, total = Person.fetch({'_id': {'$in': rows.keys()}})
+        for p in persons:
+            if p._id in rows:
+                rows[p._id]['person'] = p
+        return rows.values()
+
+        #return Person.fetch({'_id': {'$in': _ids}})
 
     @classmethod
     def build_relation(cls, rel, p1, p2):
@@ -58,9 +63,10 @@ class Person(Base):
         p1.save()
         p2.save()
 
-
 class Group(Base):
     _table = 'groups'
+    _primary_key = '_id'
 
     _id = IDField()
     name = StringField()
+    note = StringField()

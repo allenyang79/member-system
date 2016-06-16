@@ -172,6 +172,34 @@ class Meta(type):
                 raise ModelDeclareError('declare Moedl without IDField.')
 
 
+class FetchResult(object):
+    def __init__(self, cls, cursor):
+        self.cls = cls
+        self.root_cursor = self.cursor = cursor
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return self.cls(next(self.cursor))
+
+    def sort(self, key, sort):
+        self.cursor = self.cursor.sort(key, sort)
+        return self
+
+    def limit(self, limit):
+        self.cursor = self.cursor.limit(limit)
+        return self
+
+    def skip(self, skip):
+        self.cursor = self.cursor.skip(skip)
+        return self
+
+    @property
+    def total(self):
+        return self.root_cursor.count()
+
+
 class Base(object):
     __metaclass__ = Meta
     _config = ClassReadonlyProperty(default_value={})
@@ -226,14 +254,22 @@ class Base(object):
     @classmethod
     def fetch(cls, query={}, sort=None, offset=None, limit=None):
         cursor = cls._find(query)
-        if sort:
-            cursor = cursor.sort(sort)
-        if offset:
-            cursor = cursor.skip(offset)
-        if limit:
-            cursor = cursor.limit(limit)
+        return FetchResult(cls, cursor)
 
-        return map(lambda x: cls(x), cursor), cursor.count()
+        #if sort:
+        #    cursor = cursor.sort(sort)
+        #if offset:
+        #    cursor = cursor.skip(offset)
+        #if limit:
+        #    cursor = cursor.limit(limit)
+
+        #return map(lambda x: cls(x), cursor), cursor.count()
+
+    def fetch_all(cls, query={}):
+        cursor = cls._find(query)
+        for row in cursor:
+            yield cls(row)
+
 
     def __init__(self, _attrs={}):
         # self._attrs.update(_attrs)

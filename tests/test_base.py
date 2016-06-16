@@ -6,7 +6,6 @@ import unittest
 
 from app.config import config
 from app.db import db
-from app.error import InvalidError
 from app.models import ModelError, ModelInvaldError, ModelDeclareError
 from app.models import Meta, Base, ClassReadonlyProperty
 from app.models import Field, IDField, StringField, BoolField, IntField, DateField, ListField
@@ -65,9 +64,12 @@ class TestDB(unittest.TestCase):
             foo.date_field = 1234
 
         self.assertEqual(foo.list_field, [])
-        foo.list_field = [0,1,2,3]
-        self.assertEqual(foo.list_field, [0,1,2,3])
+        foo.list_field = [0, 1, 2, 3]
+        self.assertEqual(foo.list_field, [0, 1, 2, 3])
+        foo.save()
 
+        _foo = db.foo.find_one({'_id': foo._id})
+        self.assertEqual(_foo, foo._attrs)
 
         with self.assertRaises(ModelError) as ctx:
             foo = Foo.create({'other': 'other'})
@@ -80,3 +82,32 @@ class TestDB(unittest.TestCase):
             class Foo2(Base):
                 _id = IDField()
                 _id_2 = IDField()
+
+    def test_fetch(self):
+        class Foo(Base):
+            _table = ClassReadonlyProperty('foo')
+            _primary_key = ClassReadonlyProperty('_id')
+
+            _id = IDField()
+            name = StringField()
+            age = IntField()
+
+        foos = [{
+            'name': 'Bill',
+            'age': 10,
+        }, {
+            'name': 'John',
+            'age': 30
+        }, {
+            'name': 'Mary',
+            'age': 20
+        }, {
+            'name': 'Tommy',
+            'age': 40
+        }]
+        for foo in foos:
+            Foo.create(foo)
+
+        r = Foo.fetch({})
+        self.assertEqual(r.total, 4)
+        self.assertItemsEqual([f.name for f in r], [f['name'] for f in foos])

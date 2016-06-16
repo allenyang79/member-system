@@ -18,7 +18,6 @@ class TestModel(unittest.TestCase):
         pass
 
     def test_person(self):
-        return
         p = Person.create({
             'name': 'John',
             'phone_0': '0988'
@@ -66,10 +65,29 @@ class TestModel(unittest.TestCase):
         for p in persons:
             self.assertIsInstance(p, Person)
 
+        #for pp in p.get_relations():
+        #    print pp._id
+        #    self.assertIn(pp._id, [row.get('_id') for row in p.relations])
+
+
 
     def test_group(self):
-        return
-        g = Group.create({
-            'name': 'group-01'
-        })
-        self.assertEqual(g.name, 'group-01')
+        payload = {
+            'name': 'group-01',
+            'note': 'this is my group'
+        }
+        g = Group.create(payload)
+
+        self.assertEqual(g.name, payload['name'])
+        self.assertEqual(g.note, payload['note'])
+
+        raw = db.groups.find_one({'_id': g.get_id()})
+        self.assertEqual(g.name, raw['name'])
+        self.assertEqual(g.note, raw['note'])
+
+        g.name = 'group-01-fix'
+        g.save()
+
+        raw = db.groups.find_one({'_id': g.get_id()})
+        self.assertEqual(g.name, 'group-01-fix')
+
