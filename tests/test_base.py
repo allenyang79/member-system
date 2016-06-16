@@ -38,7 +38,7 @@ class TestDB(unittest.TestCase):
             int_field = IntField()
             bool_field = BoolField()
             list_field = ListField()
-            tuple_field = TupleField(namedtuple('Point',['x', 'y'], True), {'x': 0, 'y':0}}])
+            tuple_field = TupleField(namedtuple('Point',['x', 'y'], False), {'x': 0, 'y':0})
 
         self.assertEqual(Foo._primary_key, '_id')
         self.assertEqual(Foo._table, 'foo')
@@ -68,6 +68,11 @@ class TestDB(unittest.TestCase):
         self.assertEqual(foo.list_field, [])
         foo.list_field = [0, 1, 2, 3]
         self.assertEqual(foo.list_field, [0, 1, 2, 3])
+
+        print foo.tuple_field
+        return
+
+
         foo.save()
 
         _foo = db.foo.find_one({'_id': foo._id})

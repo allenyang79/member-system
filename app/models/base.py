@@ -127,15 +127,15 @@ class ListField(Field):
 
 
 class TupleField(Field):
-    def __init__(self, np , kw):
-        self.np = np #namedtuple('Point', ['x', 'y'], verbose=True)
-        self.default_value = self.np(**kw)
+    def __init__(self, np, kw):
+        self.np = np  # namedtuple('Point', ['x', 'y'], verbose=True)
+        self.default_value = kw#self.np(**kw)
 
     def value_in(self, instance, value):
-        return list(value)
+        return value.__dict__
 
     def value_out(self, instance, value):
-        return self.np(value)
+        return self.np(**value)
 
 
 class ClassReadonlyProperty(object):
