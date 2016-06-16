@@ -1,8 +1,12 @@
-from base import Base
-from base import IDField, StringField, DateField, ListField
+# -*- coding: utf-8 -*-
+
+from . import Base
+from . import IDField, StringField, DateField, ListField
 
 class Person(Base):
     _table = 'persons'
+    _primary_key = '_id'
+
     _id = IDField()
 
     social_id = StringField()

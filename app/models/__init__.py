@@ -1,2 +1,3 @@
+# -*- coding: utf-8 -*-
 
-from .models import Person, Group
+from .base import *
