@@ -6,25 +6,29 @@ import sys
 import weakref
 import datetime
 import bson
-
+from collections import namedtuple
 
 from app.error import InvalidError
 from app.db import db
 
 
 class ModelError(InvalidError):
+    """Base model operator error."""
     pass
 
 
 class ModelDeclareError(ModelError):
+    """Error on declare a new Model"""
     pass
 
 
 class ModelInvaldError(InvalidError):
+    """Invalid model operator."""
     pass
 
 
 class Field(object):
+    """Decalre a propery for Model"""
     field_key = None
 
     def __init__(self, default_value=None):
@@ -122,10 +126,23 @@ class ListField(Field):
         return list(value)
 
 
+class TupleField(Field):
+    def __init__(self, np , kw):
+        self.np = np #namedtuple('Point', ['x', 'y'], verbose=True)
+        self.default_value = self.np(**kw)
+
+    def value_in(self, instance, value):
+        return list(value)
+
+    def value_out(self, instance, value):
+        return self.np(value)
+
+
 class ClassReadonlyProperty(object):
     """a propery declare on class, and it is readonly and share with all instance.
     It is good to declare _table or _config.
     """
+
     def __init__(self, default_value=None):
         self.value = default_value
 
@@ -175,10 +192,14 @@ class Meta(type):
 class FetchResult(object):
     def __init__(self, cls, cursor):
         self.cls = cls
-        self.root_cursor = self.cursor = cursor
+        self.root_cursor = cursor
+        self.cursor = self.root_cursor.clone()
 
     def __iter__(self):
         return self
+
+    def __getitem__(self, key):
+        return self.cls(self.cursor[key])
 
     def next(self):
         return self.cls(next(self.cursor))
@@ -195,6 +216,14 @@ class FetchResult(object):
         self.cursor = self.cursor.skip(skip)
         return self
 
+    def rewind(self):
+        self.cursor.rewind()
+        return self
+
+    def reset(self):
+        self.cursor = self.root_cursor.clone()
+        return self
+
     @property
     def total(self):
         return self.root_cursor.count()
@@ -207,7 +236,6 @@ class Base(object):
 
     _table = ClassReadonlyProperty()
     _primary_key = ClassReadonlyProperty()
-
 
     @classmethod
     def _find(cls, query={}):
@@ -256,20 +284,11 @@ class Base(object):
         cursor = cls._find(query)
         return FetchResult(cls, cursor)
 
-        #if sort:
-        #    cursor = cursor.sort(sort)
-        #if offset:
-        #    cursor = cursor.skip(offset)
-        #if limit:
-        #    cursor = cursor.limit(limit)
-
-        #return map(lambda x: cls(x), cursor), cursor.count()
-
+    @classmethod
     def fetch_all(cls, query={}):
         cursor = cls._find(query)
         for row in cursor:
             yield cls(row)
-
 
     def __init__(self, _attrs={}):
         # self._attrs.update(_attrs)
@@ -287,6 +306,10 @@ class Base(object):
         return self._attrs['_id']
 
     def save(self, allow_fields=None):
+        """Save _attrs in to database.
+
+        :param list allow_fields: it will only save allow_fields.
+        """
         cls = type(self)
         payload = {}
 
@@ -307,9 +330,6 @@ class Base(object):
             cls._update_one({'_id': self.get_id()}, payload)
 
     def to_dict(self):
-        """ a format dictionary.
+        """ return a standand dict.
         """
         return self._attrs
-
-
-

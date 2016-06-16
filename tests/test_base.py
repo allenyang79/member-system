@@ -2,13 +2,14 @@
 import os
 import sys
 import datetime
-import unittest
+from collections import namedtuple
 
+import unittest
 from app.config import config
 from app.db import db
 from app.models import ModelError, ModelInvaldError, ModelDeclareError
 from app.models import Meta, Base, ClassReadonlyProperty
-from app.models import Field, IDField, StringField, BoolField, IntField, DateField, ListField
+from app.models import Field, IDField, StringField, BoolField, IntField, DateField, ListField, TupleField
 
 
 class TestDB(unittest.TestCase):
@@ -37,6 +38,7 @@ class TestDB(unittest.TestCase):
             int_field = IntField()
             bool_field = BoolField()
             list_field = ListField()
+            tuple_field = TupleField(namedtuple('Point',['x', 'y'], True), {'x': 0, 'y':0}}])
 
         self.assertEqual(Foo._primary_key, '_id')
         self.assertEqual(Foo._table, 'foo')
@@ -111,3 +113,15 @@ class TestDB(unittest.TestCase):
         r = Foo.fetch({})
         self.assertEqual(r.total, 4)
         self.assertItemsEqual([f.name for f in r], [f['name'] for f in foos])
+
+        r = Foo.fetch({'age': {'$gt': 20}})
+        self.assertEqual(r.total, 2)
+        self.assertTrue(r[0].age > 20)
+        self.assertTrue(r[1].age > 20)
+
+
+        r = Foo.fetch({'name': 'John'})
+        self.assertEqual(r.total, 1)
+        self.assertEqual(r[0].name, 'John')
+
+
