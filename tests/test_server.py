@@ -8,8 +8,8 @@ import bson
 from app.config import config
 from app.server import app as main_app
 from app.db import db
-from app.models import Person
-from app.models import Group
+from app.models.models import Person
+from app.models.models import Group
 
 
 class TestServer(unittest.TestCase):

@@ -69,10 +69,6 @@ class TestDB(unittest.TestCase):
         foo.list_field = [0, 1, 2, 3]
         self.assertEqual(foo.list_field, [0, 1, 2, 3])
 
-        print foo.tuple_field
-        return
-
-
         foo.save()
 
         _foo = db.foo.find_one({'_id': foo._id})

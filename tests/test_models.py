@@ -61,8 +61,9 @@ class TestModel(unittest.TestCase):
             '_id': p.get_id()
         }, _p_other.relations)
 
-        persons, _ = Person.fetch()
-        for p in persons:
+        fetch_result = Person.fetch()
+        self.assertEqual(fetch_result.total, 2)
+        for p in fetch_result:
             self.assertIsInstance(p, Person)
 
         #for pp in p.get_relations():

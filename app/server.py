@@ -8,8 +8,6 @@ from flask import Flask
 from flask import request, jsonify
 
 from app.error import InvalidError
-from app.models import Person
-from app.models import Group
 from app import utils
 
 
@@ -39,7 +37,7 @@ def index():
         'success': True
     }
 
-
+"""
 @app.route('/person/one/<_id>')
 def person_one(_id):
     person = Person.get_one(_id)
@@ -125,7 +123,7 @@ def person_create():
         'success': True,
         'data': p.to_dict()
     }
-
+"""
 
 if __name__ == '__main__':
     app.run(debug=True)
