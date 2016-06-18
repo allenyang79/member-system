@@ -1,14 +1,35 @@
 # -*- coding: utf-8 -*-
 import os, sys
+import atexit
 import re
+
 import unittest
+import mock
 from app.config import config, load_config
-from app.db import init as init_db, db
+import app.db
 
-
+box = None
+db = None
+client = None
 def setup():
-    load_config(['--config', 'test', '--debug'])
-    init_db()
+    global box, db, client
 
-def teardown():
-    pass
+    load_config(['--config', 'test', '--debug'])
+    app.db.init_db()
+
+    from mongobox import MongoBox
+    box = MongoBox()
+    box.start()
+
+    client = box.client()  # pymongo client
+    db = client[config['DB_NAME']]
+
+    app.db._client = client
+    app.db._db = db
+
+def bye():
+    global box
+    if box and box :
+        box.stop()
+
+atexit.register(bye)

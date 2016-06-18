@@ -13,9 +13,6 @@ from app.models import Field, IDField, StringField, BoolField, IntField, DateFie
 
 
 class TestDB(unittest.TestCase):
-    def setUp(self):
-        pass
-
     def tearDown(self):
         for col_name in db.collection_names():
             db[col_name].drop()

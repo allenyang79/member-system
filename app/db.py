@@ -1,30 +1,27 @@
 import os
 import sys
+import functools
 import pymongo
 
 from werkzeug.local import LocalProxy
 from app.config import config
 
 
-def init():
-    global _db
-    if config['MODE'] == 'test':
-        # run on test mode
-        from mongobox import MongoBox
-        box = MongoBox()
-        box.start()
-        client = box.client()  # pymongo client
-        _db = client[config['DB_NAME']]
-    else:
-        client = MongoClient()
-        _db = client[config['DB_NAME']]
+def init_db():
+    print "init db"
+    global _client, _db
+    _client = pymongo.MongoClient(config['DB_HOST'], config['DB_PORT'])
+    _db = _client[config['DB_NAME']]
 
 
 def find_db():
-    if _db is None:
-        raise Exception('models has not init')
-    else:
+    global _db
+    if _db:
         return _db
+    else:
+        raise Exception('please un app.db.init_db first')
+
 
 _db = None
-db = LocalProxy(find_db)
+_client = None
+db = LocalProxy(functools.partial(find_db))
