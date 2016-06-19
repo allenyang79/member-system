@@ -16,8 +16,7 @@ def _find_db():
         print "==init db=="
         _client = pymongo.MongoClient(config['DB_HOST'], config['DB_PORT'])
         _db = _client[config['DB_NAME']]
-    else:
-        return _db
+    return _db
 
 find_db = functools.partial(_find_db)  #mock this on unittest
 db = LocalProxy(find_db)

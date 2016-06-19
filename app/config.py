@@ -21,15 +21,19 @@ parser.add_argument(
     default=False
 )
 
-def parse_args():
-    """Parse args.
-    you can mock this function when run unittest.
-    """
-    return parser.parse_args()
 
-def load_config():
-    # default
-    args = parse_args()
+
+def load_config(custom_args=None):
+    global config
+    if config:
+        print "pass load_config if loaded."
+        return
+
+    if custom_args is None:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(custom_args)
+
     m = __import__('configs.default', fromlist=['default'])
     config.update(m.config)
 

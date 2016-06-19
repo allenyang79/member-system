@@ -12,14 +12,11 @@ box = None
 db = None
 client = None
 def setup():
-    print "===mock config==="
-    from app.config import parser
+    print "===custom config==="
+    load_config(['--config', 'test', '--debug'])
 
-    args = parser.parse_args(['--config', 'test', '--debug'])
-    mock_parse_args = mock.patch('app.config.parse_args', return_value=args)
-    mock_parse_args.start()
 
-    print "===mock db==="
+    print "===custom db==="
     from mongobox import MongoBox
 
     global box, db, client
@@ -33,8 +30,6 @@ def setup():
     app.db._client = client
     app.db._db = db
 
-    # ========================
-    load_config()
 
 def bye():
     global box

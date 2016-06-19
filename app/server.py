@@ -18,7 +18,12 @@ class CustomFlask(Flask):
         return super(CustomFlask, self).make_response(rv)
 
 
+if __name__ == '__main__':
+    load_config()
+
 app = CustomFlask(__name__)
+app.config.update(config)
+
 app.json_encoder = utils.BSONJSONEncoder
 app.json_decoder = utils.BSONJSONDecoder
 app.url_map.converters['ObjectId'] = utils.ObjectIdConverter
@@ -73,7 +78,7 @@ def handle_invalid_error(error):
 @app.route('/index')
 def index():
     return {
-        'success': True
+        'success': True,
     }
 
 """
@@ -90,6 +95,4 @@ def admin():
 
 
 if __name__ == '__main__':
-    load_config()
-    app.config.update(config)
     app.run(debug=True)
