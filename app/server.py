@@ -7,8 +7,6 @@ from flask import Flask
 from flask import request, jsonify
 
 from app.config import load_config, config
-from app.db import init_db, db
-
 from app import utils
 from app.error import InvalidError
 from app.view import blueprint
@@ -93,6 +91,5 @@ def admin():
 
 if __name__ == '__main__':
     load_config()
-    init_db()
     app.config.update(config)
     app.run(debug=True)

@@ -12,20 +12,29 @@ box = None
 db = None
 client = None
 def setup():
+    print "===mock config==="
+    from app.config import parser
+
+    args = parser.parse_args(['--config', 'test', '--debug'])
+    mock_parse_args = mock.patch('app.config.parse_args', return_value=args)
+    mock_parse_args.start()
+
+    print "===mock db==="
+    from mongobox import MongoBox
+
     global box, db, client
 
-    load_config(['--config', 'test', '--debug'])
-    app.db.init_db()
-
-    from mongobox import MongoBox
     box = MongoBox()
     box.start()
 
     client = box.client()  # pymongo client
-    db = client[config['DB_NAME']]
-
+    db = client['test']
+    #mock_parse_args = mock.patch('app.db.db', return_value=db)
     app.db._client = client
     app.db._db = db
+
+    # ========================
+    load_config()
 
 def bye():
     global box
