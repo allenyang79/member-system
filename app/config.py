@@ -24,6 +24,7 @@ parser.add_argument(
 
 def load_config(custom_args=None):
     print "load_config", custom_args
+
     if custom_args is None:
         args = parser.parse_args()
     else:

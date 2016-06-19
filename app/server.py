@@ -6,16 +6,19 @@ import sys
 from flask import Flask
 from flask import request, jsonify
 
+from app.config import load_config, config
+from app.db import init_db, db
+
 from app import utils
 from app.error import InvalidError
 from app.view import blueprint
-
 
 class CustomFlask(Flask):
     def make_response(self, rv):
         if isinstance(rv, (dict, list)):
             rv = jsonify(rv)
         return super(CustomFlask, self).make_response(rv)
+
 
 app = CustomFlask(__name__)
 app.json_encoder = utils.BSONJSONEncoder
@@ -75,19 +78,21 @@ def index():
         'success': True
     }
 
-
-from flask_jwt import JWT, jwt_required, current_identity
-from app.auth import authenticate, identity
+"""
+from flask_jwt import jwt_required, current_identity
+from app.auth import MyJWT,authenticate, identity
 app.config['SECRET_KEY'] = 'super-secret'
-
-jwt = JWT(app, authenticate, identity)
+jwt = MyJWT(app, authenticate, identity)
 
 @app.route('/admin')
 @jwt_required
 def admin():
     return '%s' % current_identity
-
+"""
 
 
 if __name__ == '__main__':
+    load_config()
+    init_db()
+    app.config.update(config)
     app.run(debug=True)
