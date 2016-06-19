@@ -44,31 +44,29 @@ class TestModel(unittest.TestCase):
             # can only assign datetime object to `birthday`
             p.birthday = 'anything'
 
-        _p = Person.get_one(p.get_id())
+        p = Person.get_one(p.get_id())
         p_other = Person.create({
             'name': 'Mary'
         })
-        Person.build_relation('family', p, p_other)
-        _p = Person.get_one(p.get_id())
+        p.build_relation('family', p_other.get_id(), due=True)
+
+        p = Person.get_one(p.get_id())
         self.assertIn({
             'rel': 'family',
-            '_id': p_other.get_id()
+            'person_id': p_other.get_id()
         }, p.relations)
 
-        _p_other = Person.get_one(p_other.get_id())
+        p_other = Person.get_one(p_other.get_id())
         self.assertIn({
             'rel': 'family',
-            '_id': p.get_id()
-        }, _p_other.relations)
+            'person_id': p.get_id()
+        }, p_other.relations)
 
+        # test fetch
         fetch_result = Person.fetch()
         self.assertEqual(fetch_result.total, 2)
         for p in fetch_result:
             self.assertIsInstance(p, Person)
-
-        #for pp in p.get_relations():
-        #    print pp._id
-        #    self.assertIn(pp._id, [row.get('_id') for row in p.relations])
 
 
 

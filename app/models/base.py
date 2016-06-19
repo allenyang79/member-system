@@ -28,10 +28,10 @@ class ModelInvaldError(InvalidError):
     """Invalid model operator."""
     pass
 
+
 class ModelParserError(InvalidError):
     """Parse from dict fail."""
     pass
-
 
 
 class Field(object):
@@ -138,11 +138,12 @@ class DateField(Field):
 
 
 class ListField(Field):
-    def __init__(self, default_value=[]):
-        self.default_value = default_value
-
     def value_in(self, instance, value):
         return list(value)
+
+    def value_default(self, instance):
+        """The default value of this field."""
+        return []
 
 
 class TupleField(Field):
@@ -154,7 +155,9 @@ class TupleField(Field):
         return value.__dict__
 
     def value_out(self, instance, value):
-        return self.np(**value)
+        if isinstance(value, dict):
+            return self.np(**value)
+        return None
 
     def encode(self, value):
         return value.__dict__
@@ -346,7 +349,7 @@ class Base(object):
 
         fields = set(self._config.keys())
         if allow_fields:
-            fields = allow_fields & fields
+            fields = set(allow_fields) & fields
 
         for k in fields:
             if self.is_new() and isinstance(self._config[k], IDField):
@@ -371,13 +374,24 @@ class Base(object):
         ret = {
             '__class__': type(self).__name__
         }
-        for k, field in self._config.iteritems():
-            ret[k] = field.encode(getattr(self,k))
+        for field_key, field in self._config.iteritems():
+            if field_key in self._attrs:
+                ret[field_key] = field.encode(getattr(self, field_key))
         return ret
+
+    def update(self, payload, use_raw=False):
+        """update a value from external dict by json.loads()."""
+        if use_raw:
+            self._attrs.update(payload)
+            return self
+
+        for field_key, field in self._config.iteritems():
+            if field_key in payload:
+                setattr(self, field_key, field.decode(payload[field_key]))
+        return self
 
     @classmethod
     def from_dict(cls, payload):
-        print payload
         if '__class__' in payload and payload['__class__'] == cls.__name__:
             raw = {}
             for field_key, field in cls._config.iteritems():
@@ -385,4 +399,3 @@ class Base(object):
                     raw[field_key] = field.decode(payload[field_key])
             return cls(raw)
         raise ModelParserError('can not parse `%s` to `%s` instance.' % (payload, cls.__name__))
-

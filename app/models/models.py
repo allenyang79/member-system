@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
+from collections import namedtuple
+import app.error as error
 
 from . import Base
-from . import IDField, StringField, DateField, ListField
+from . import IDField, StringField, DateField, ListField, TupleField
+
 
 class Person(Base):
     _table = 'persons'
@@ -36,7 +39,8 @@ class Person(Base):
     gifts = ListField()     # ['aa', 'bb', 'cc']
     groups = ListField()    # [group_id, group_id, group_id]
     events = ListField()    # {date:'', 'title': 'bala...'}
-    relations = ListField()  # {rel: 'parent', _id: '1231212'}
+    relations = ListField()  # {rel: 'parent', person_id: '1231212'}
+    #TupleField(namedtuple('Relation', ('rel', 'person_id')), {'rel':None, 'person_id':None})
 
     note = StringField()
 
@@ -47,21 +51,23 @@ class Person(Base):
             if p._id in rows:
                 rows[p._id]['person'] = p
         return rows.values()
+        # return Person.fetch({'_id': {'$in': _ids}})
 
-        #return Person.fetch({'_id': {'$in': _ids}})
+    def build_relation(self, rel, other_person_id, due=False):
+        item = {'rel': rel, 'person_id': other_person_id}
+        other_person_ids = [item['person_id'] for item in self.relations]
+        if other_person_id in other_person_ids:
+            raise error.InvalidError('relation is existed.')
 
-    @classmethod
-    def build_relation(cls, rel, p1, p2):
-        p1.relations.append({
-            'rel': rel,
-            '_id': p2._id
-        })
-        p2.relations.append({
-            'rel': rel,
-            '_id': p1._id
-        })
-        p1.save()
-        p2.save()
+        else:
+            self.relations.append(item)
+            self.save(allow_fields=('relations',))
+            if due:
+                other_person = type(self).get_one(other_person_id)
+                other_person.build_relation(rel, self.get_id())
+
+        return True
+
 
 class Group(Base):
     _table = 'groups'
