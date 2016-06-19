@@ -23,14 +23,11 @@ class TestServer(unittest.TestCase):
 
     def test_heartbeat(self):
         r = self.client.get('/')
-        # print r
-        # print r.data
         self.assertEqual(json.loads(r.data), {
             'success': True
         })
 
     def test_person_create_update(self):
-        return
         post = {
             'name': 'Bill',
             'phone_0': '0988'
@@ -39,7 +36,6 @@ class TestServer(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
 
         person_id = json.loads(r.data)['data']['_id']
-
         r = self.client.get('/person/one/%s' % person_id)
         self.assertEqual(r.status_code, 200)
 
@@ -83,9 +79,20 @@ class TestServer(unittest.TestCase):
         return
 
     def test_person_list(self):
-        return
+        db.persons.insert_many([{
+            '_id': 'p1',
+            'name': 'Bill'
+        },{
+            '_id': 'p2',
+            'name': 'John'
+        }])
+
         r = self.client.get('/person/list')
+        return
         self.assertEqual(r.status_code, 200)
+        result = json.loads(r.data)
+        self.assertEqual(len(result['data']), 2)
+
 
     def test_person_one(self):
         return

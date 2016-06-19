@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 
+import copy
 import functools
 import os
 import sys
 import weakref
 import datetime
 import bson
+
 from collections import namedtuple
 
 from app.error import InvalidError
@@ -25,6 +27,11 @@ class ModelDeclareError(ModelError):
 class ModelInvaldError(InvalidError):
     """Invalid model operator."""
     pass
+
+class ModelParserError(InvalidError):
+    """Parse from dict fail."""
+    pass
+
 
 
 class Field(object):
@@ -48,20 +55,26 @@ class Field(object):
         self.field_key = field_key
         cls._config[field_key] = self
 
+    # process value in/out of db
     def value_default(self, instance):
         """The default value of this field."""
         return self.default_value
 
     def value_in(self, instance, value):
-        """The process from property to assign value in instance._attrs"""
+        """The value from external to instance._attrs"""
         return value
 
     def value_out(self, instance, value):
-        """The process from value in instance._attrs to property."""
+        """The value from instance._attrs to external"""
         return value
 
-    # def value_to_json(self, instance, value):
-    # mabey is a good idea. to declare a value that can from db to json
+    def encode(self, value):
+        """ encode external value to another data type that json.dumps can process. """
+        return value
+
+    def decode(self, value):
+        """ decode external value from another data type that json.loads can process. """
+        return value
 
 
 class IDField(Field):
@@ -117,6 +130,12 @@ class DateField(Field):
     def value_out(self, instance, value):
         return value.date()
 
+    def encode(self, value):
+        return value.strftime('%Y-%m-%d')
+
+    def decode(self, value):
+        return datetime.datetime.strptime(value, '%Y-%m-%d')
+
 
 class ListField(Field):
     def __init__(self, default_value=[]):
@@ -129,12 +148,18 @@ class ListField(Field):
 class TupleField(Field):
     def __init__(self, np, kw):
         self.np = np  # namedtuple('Point', ['x', 'y'], verbose=True)
-        self.default_value = kw#self.np(**kw)
+        self.default_value = kw  # self.np(**kw)
 
     def value_in(self, instance, value):
         return value.__dict__
 
     def value_out(self, instance, value):
+        return self.np(**value)
+
+    def encode(self, value):
+        return value.__dict__
+
+    def decode(self, value):
         return self.np(**value)
 
 
@@ -143,29 +168,40 @@ class ClassReadonlyProperty(object):
     It is good to declare _table or _config.
     """
 
-    def __init__(self, default_value=None):
-        self.value = default_value
+    def __init__(self, default_value=lambda: None):
+        self.default_value = default_value
+        self.values = weakref.WeakKeyDictionary()
 
     def __get__(self, instance, cls):
-        return self.value
+        if cls not in self.values:
+            if hasattr(self.default_value, '__call__'):
+                self.values[cls] = self.default_value()
+            else:
+                self.values[cls] = self.default_value
+
+        return self.values[cls]
 
     def __set__(self, instance, value):
         raise ModelInvaldError('`ClassReadonlyProperty` is readonly.')
 
 
-class AttrsAttr(object):
-    def __init__(self):
+class InstanceReadonlyProperty(object):
+    def __init__(self, default_value=lambda: None):
+        self.default_value = default_value
         self.values = weakref.WeakKeyDictionary()
 
     def __get__(self, instance, cls):
         if instance:
             if instance not in self.values:
-                self.values[instance] = {}
+                if hasattr(self.default_value, '__call__'):
+                    self.values[instance] = self.default_value()
+                else:
+                    self.values[instance] = self.default_value
             return self.values[instance]
-        raise ModelInvaldError('AttrsAttr can not work on class level.')
+        raise ModelInvaldError('`InstanceReadonlyProperty` can not work on class level.')
 
     def __set__(self):
-        raise ModelInvaldError('`AttrsAttr` is readonly.')
+        raise ModelInvaldError('`InstanceReadonlyProperty` is readonly.')
 
 
 class Meta(type):
@@ -231,8 +267,9 @@ class FetchResult(object):
 
 class Base(object):
     __metaclass__ = Meta
-    _config = ClassReadonlyProperty(default_value={})
-    _attrs = AttrsAttr()
+
+    _config = ClassReadonlyProperty(lambda: {})
+    _attrs = InstanceReadonlyProperty(lambda: {})
 
     _table = ClassReadonlyProperty()
     _primary_key = ClassReadonlyProperty()
@@ -284,12 +321,6 @@ class Base(object):
         cursor = cls._find(query)
         return FetchResult(cls, cursor)
 
-    @classmethod
-    def fetch_all(cls, query={}):
-        cursor = cls._find(query)
-        for row in cursor:
-            yield cls(row)
-
     def __init__(self, _attrs={}):
         # self._attrs.update(_attrs)
         for k, v in _attrs.items():
@@ -329,7 +360,29 @@ class Base(object):
         else:
             cls._update_one({'_id': self.get_id()}, payload)
 
-    def to_dict(self):
-        """ return a standand dict.
+    def to_dict(self, use_raw=False):
+        """ return a dict, that can be dump to json.
+        :param bool use_raw: if True, it will return a copy of self._attrs.
+
         """
-        return self._attrs
+        if use_raw:
+            return copy.deepcopy(self._attrs)
+
+        ret = {
+            '__class__': type(self).__name__
+        }
+        for k, field in self._config.iteritems():
+            ret[k] = field.encode(getattr(self,k))
+        return ret
+
+    @classmethod
+    def from_dict(cls, payload):
+        print payload
+        if '__class__' in payload and payload['__class__'] == cls.__name__:
+            raw = {}
+            for field_key, field in cls._config.iteritems():
+                if field_key in payload:
+                    raw[field_key] = field.decode(payload[field_key])
+            return cls(raw)
+        raise ModelParserError('can not parse `%s` to `%s` instance.' % (payload, cls.__name__))
+

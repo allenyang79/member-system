@@ -9,6 +9,7 @@ from flask import request, jsonify
 
 from app.error import InvalidError
 from app import utils
+from app.models.models import Person, Group
 
 
 class CustomFlask(Flask):
@@ -37,7 +38,7 @@ def index():
         'success': True
     }
 
-"""
+
 @app.route('/person/one/<_id>')
 def person_one(_id):
     person = Person.get_one(_id)
@@ -101,16 +102,16 @@ def person_build_relation():
 
 @app.route('/person/list')
 def person_list():
-    term = str(request.values.get('term'))
-    limit = int(request.values.get('limit', 0))
+    #term = str(request.values.get('term'))
+    #limit = int(request.values.get('limit', 0))
+    result = Person.fetch()
+    data = []
+    for person in result:
+        data.append(person.to_dict())
+
     return {
         'success': True,
         'data': data,
-        'meta': {
-            'total': 0,
-            'offset': 0,
-            'limit': 10
-        }
     }
 
 
@@ -123,7 +124,6 @@ def person_create():
         'success': True,
         'data': p.to_dict()
     }
-"""
 
 if __name__ == '__main__':
     app.run(debug=True)
