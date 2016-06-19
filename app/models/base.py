@@ -78,8 +78,14 @@ class Field(object):
 
 
 class IDField(Field):
-    @classmethod
-    def generate_id(cls):
+    def is_new(self, instance):
+        if self.field_key not in instance._attrs:
+            return True
+        if not instance._attrs[self.field_key]:
+            return True
+        return False
+
+    def generate_id(self, instance):
         return str(bson.ObjectId())
 
 
@@ -332,9 +338,8 @@ class Base(object):
             setattr(self, k, v)
 
     def is_new(self):
-        if '_id' in self._attrs:
-            return False
-        return True
+        primary_field = self._config[self._primary_key]
+        return primary_field.is_new(self)
 
     def get_id(self):
         return self._attrs['_id']
@@ -358,7 +363,8 @@ class Base(object):
                 payload[k] = self._attrs[k]
 
         if self.is_new():
-            payload['_id'] = IDField.generate_id()
+            primary_field = self._config[self._primary_key]
+            payload['_id'] = primary_field.generate_id(self)
             self._attrs['_id'] = cls._insert_one(payload)
         else:
             cls._update_one({'_id': self.get_id()}, payload)

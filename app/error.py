@@ -1,7 +1,8 @@
 import json
 
+
 class InvalidError(Exception):
-    def __init__(self, message, status_code = 400, payload=None):
+    def __init__(self, message, status_code=400, payload=None):
         super(InvalidError, self).__init__(message)
         self.status_code = status_code
         self.payload = payload
@@ -14,3 +15,6 @@ class InvalidError(Exception):
         if self.payload:
             ret['payload'] = json.dumps(self.payload)
         return ret
+
+
+

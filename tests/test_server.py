@@ -27,6 +27,22 @@ class TestServer(unittest.TestCase):
             'success': True
         })
 
+    def test_auth(self):
+        db.admins.insert_many([{
+            '_id': 'admin',
+            'password': '2468',
+            'enable': True
+        }])
+
+        post = {
+            'username': 'admin',
+            'password': '2468'
+        }
+        r = self.client.post('/auth', data=json.dumps(post), content_type='application/json')
+        print r.status_code
+        print r.data
+
+
     def test_person_create_update(self):
         post = {
             'name': 'Bill',

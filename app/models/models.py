@@ -3,8 +3,23 @@ from collections import namedtuple
 import app.error as error
 
 from . import Base
-from . import IDField, StringField, DateField, ListField, TupleField
+from . import IDField, StringField, DateField, BoolField, ListField, TupleField
 
+class Admin(Base):
+    _table = 'admins'
+    _primary_key = '_id'
+
+    _id = IDField()
+    password = StringField()
+    enable = BoolField()
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def username(self):
+        return self._id
 
 class Person(Base):
     _table = 'persons'
