@@ -2,6 +2,9 @@
 from collections import namedtuple
 import app.error as error
 
+from passlib.hash import pbkdf2_sha256
+
+from app.db import db
 from . import Base
 from . import IDField, StringField, DateField, BoolField, ListField, TupleField
 
@@ -11,15 +14,27 @@ class Admin(Base):
 
     _id = IDField()
     password = StringField()
-    enable = BoolField()
+    enabled = BoolField()
 
-    @property
-    def id(self):
-        return self._id
+    @classmethod
+    def login(cls, _id, password):
+        raw = db[cls._table].find_one({'_id': _id}, {'_id': 1, 'password': 1, 'enabled': 1})
+        if raw and raw.get('enabled', False):
+            return cls.valid_password(password, raw['password'])
+        return False
 
-    @property
-    def username(self):
-        return self._id
+    @classmethod
+    def hash_password(cls, password):
+        if isinstance(password, unicode):
+            password = password.encode('utf-8')
+        return pbkdf2_sha256.encrypt(password, rounds=10 ** 5, salt_size=16)
+
+    @classmethod
+    def valid_password(cls, password, encoded):
+        if isinstance(password, unicode):
+            password = password.encode('utf-8')
+        return pbkdf2_sha256.verify(password, encoded)
+
 
 class Person(Base):
     _table = 'persons'

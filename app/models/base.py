@@ -334,7 +334,7 @@ class Base(object):
         # self._attrs.update(_attrs)
         for k, v in _attrs.items():
             if k not in self._config:
-                raise ModelError('init model instancewith unfield value.')
+                raise ModelError('init model instance with unfield value.')
             setattr(self, k, v)
 
     def is_new(self):

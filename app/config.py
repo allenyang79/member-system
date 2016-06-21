@@ -3,6 +3,7 @@ import os
 import sys
 import argparse
 
+config = {}
 
 parser = argparse.ArgumentParser(
     description='custom config'
@@ -22,23 +23,26 @@ parser.add_argument(
 )
 
 
+def _parse_args():
+    """parse args from cli.
 
-def load_config(custom_args=None):
+    You can mock this function for unittest.
+    """
+    args = parser.parse_args()
+
+def load_config():
     global config
     if config:
-        print "pass load_config if loaded."
+        print 'pass load_config if loaded.'
         return
 
-    if custom_args is None:
-        args = parser.parse_args()
-    else:
-        args = parser.parse_args(custom_args)
-
+    args = _parse_args()
+    print "load_config", args
     m = __import__('configs.default', fromlist=['default'])
     config.update(m.config)
 
-    # by args.config
     m = __import__('configs.%s' % args.config, fromlist=[args.config])
     config.update(m.config)
 
-config = {}
+
+

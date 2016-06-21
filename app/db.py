@@ -10,13 +10,16 @@ from app.config import config
 _db = None
 _client = None
 
-def _find_db():
+def _init_db():
+    client = pymongo.MongoClient(config['DB_HOST'], config['DB_PORT'])
+    db = client[config['DB_NAME']]
+    return client, _db
+
+
+def find_db():
     global _client, _db
     if not _db:
-        print "==init db=="
-        _client = pymongo.MongoClient(config['DB_HOST'], config['DB_PORT'])
-        _db = _client[config['DB_NAME']]
+        _client, _db = _init_db()
     return _db
 
-find_db = functools.partial(_find_db)  #mock this on unittest
 db = LocalProxy(find_db)

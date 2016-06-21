@@ -5,35 +5,40 @@ import re
 
 import unittest
 import mock
-from app.config import config, load_config
-import app.db
+
+#import app.config as config
+from app.config import parser, config
+import app.server
 
 box = None
-db = None
-client = None
+
 def setup():
-    print "===custom config==="
-    load_config(['--config', 'test', '--debug'])
+    print "custom config"
+    def side_effect():
+        return parser.parse_args(['--config', 'test', '--debug'])#from
 
+    mock_load_config = mock.patch('app.config._parse_args', side_effect=side_effect)
+    mock_load_config.start()
 
-    print "===custom db==="
+    print "custom db"
     from mongobox import MongoBox
-
     global box, db, client
-
     box = MongoBox()
     box.start()
 
-    client = box.client()  # pymongo client
-    db = client['test']
-    #mock_parse_args = mock.patch('app.db.db', return_value=db)
-    app.db._client = client
-    app.db._db = db
+    def side_effect():
+        client = box.client()  # pymongo client
+        db = client['test']
+        return client, db
+
+    mock_init_db = mock.patch('app.db._init_db', side_effect=side_effect)
+    mock_init_db.start()
+
 
 
 def bye():
     global box
-    if box and box :
+    if box:
         box.stop()
 
 atexit.register(bye)
