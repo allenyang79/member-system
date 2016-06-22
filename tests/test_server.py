@@ -26,7 +26,7 @@ class TestServer(unittest.TestCase):
         db.groups.delete_many({})
 
     def test_person_create_update(self):
-        return
+        """/person/create"""
         post = {
             'name': 'Bill',
             'phone_0': '0988'
@@ -56,10 +56,9 @@ class TestServer(unittest.TestCase):
         self.assertEqual(_person['phone_1'], post['phone_1'])
         self.assertEqual(_person['address_0'], post['address_0'])
 
-        return
 
     def test_person_build_relation(self):
-        return
+        """/person/<_id>/relation"""
         db.persons.insert_many([{
             '_id': 'id_0',
             'name': 'Bill'
@@ -85,7 +84,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_person_list(self):
-        return
+        """/person/list"""
         db.persons.insert_many([{
             '_id': 'id_1',
             'name': 'Bill'
@@ -115,7 +114,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(result[0]['name'], 'John')
 
     def test_person_one(self):
-        return
+        """/person/one/<_id>"""
         db.persons.insert_many([{
             '_id': 'id_1',
             'name': 'Bill'
@@ -131,7 +130,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(result['name'], 'Bill')
 
     def test_group(self):
-        return
+        """/group/create"""
         payload = {
             'name': 'group-1',
             'note': 'this is note'
@@ -156,7 +155,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(_group['name'], payload['name'])
 
     def test_group_list(self):
-        return
+        """/group/list"""
         db.groups.insert_many([{
             '_id': 'id_0',
             'name': 'group-0'

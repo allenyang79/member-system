@@ -18,6 +18,7 @@ class TestModel(unittest.TestCase):
         pass
 
     def test_person(self):
+        """Person"""
         p = Person.create({
             'name': 'John',
             'phone_0': '0988'
@@ -71,6 +72,7 @@ class TestModel(unittest.TestCase):
 
 
     def test_group(self):
+        """Group"""
         payload = {
             'name': 'group-01',
             'note': 'this is my group'
