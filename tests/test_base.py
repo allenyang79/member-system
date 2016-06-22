@@ -126,7 +126,7 @@ class TestDB(unittest.TestCase):
         """Test fetch by Model."""
 
         class Foo3(Base):
-            _table = ClassReadonlyProperty('foo')
+            _table = ClassReadonlyProperty('foo3s')
             _primary_key = ClassReadonlyProperty('_id')
 
             _id = IDField()
@@ -134,24 +134,33 @@ class TestDB(unittest.TestCase):
             age = IntField()
 
         foos = [{
+            '_id': 'id_0',
             'name': 'Bill',
             'age': 10,
         }, {
+            '_id': 'id_1',
             'name': 'John',
             'age': 30
         }, {
+            '_id': 'id_2',
             'name': 'Mary',
             'age': 20
         }, {
+            '_id': 'id_3',
             'name': 'Tommy',
             'age': 40
         }]
-        for foo in foos:
-            Foo3.create(foo)
+        db.foo3s.insert_many(foos)
 
         r = Foo3.fetch({})
         self.assertEqual(r.total, 4)
         self.assertItemsEqual([f.name for f in r], [f['name'] for f in foos])
+
+        r = Foo3.fetch({'_id': 'id_2'})
+        self.assertEqual(r.total, 1)
+        self.assertItemsEqual(r[0].foo_id, 'id_2')
+        self.assertItemsEqual(r[0].name, 'Mary')
+        self.assertItemsEqual(r[0].age, 20)
 
         r = Foo3.fetch({'age': {'$gt': 20}})
         self.assertEqual(r.total, 2)

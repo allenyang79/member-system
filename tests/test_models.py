@@ -69,8 +69,6 @@ class TestModel(unittest.TestCase):
         for p in fetch_result:
             self.assertIsInstance(p, Person)
 
-
-
     def test_group(self):
         """Group"""
         payload = {
@@ -91,4 +89,3 @@ class TestModel(unittest.TestCase):
 
         raw = db.groups.find_one({'_id': g.get_id()})
         self.assertEqual(g.name, 'group-01-fix')
-

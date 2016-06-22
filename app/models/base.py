@@ -307,10 +307,10 @@ class FetchResult(object):
         return self
 
     def __getitem__(self, key):
-        return self.cls(self.cursor[key])
+        return self.cls.get_one(raw=self.cursor[key])
 
     def next(self):
-        return self.cls(next(self.cursor))
+        return self.cls.get_one(raw=next(self.cursor))
 
     def sort(self, key, sort):
         self.cursor = self.cursor.sort(key, sort)
@@ -378,9 +378,17 @@ class Base(object):
             return False
 
     @classmethod
-    def get_one(cls, _id=None):
-        row = db[cls._table].find_one({'_id': _id}, projection={field.raw_field_key: True for field in cls._config.values()})
-        return cls(row)
+    def get_one(cls, _id=None, raw=None):
+        if _id and raw is None:
+            raw = db[cls._table].find_one({'_id': _id}, projection={field.raw_field_key: True for field in cls._config.values()})
+        elif raw:
+            pass
+        else:
+            raise ModelInvaldError('get_one arguemtn errors.')
+
+        instance = cls({})
+        instance._attrs.update(raw)
+        return instance
 
     @classmethod
     def create(cls, payload={}):
@@ -397,7 +405,7 @@ class Base(object):
         # self._attrs.update(_attrs)
         for k, v in values.items():
             if k not in self._config:
-                raise ModelError('init `%s` instance with unfield key,value (%s, %s).' % (type(self), k, v))
+                raise ModelError('create a `%s` instance with unfield key,value (%s, %s).' % (type(self), k, v))
             setattr(self, k, v)
 
     def is_new(self):

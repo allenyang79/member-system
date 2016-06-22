@@ -11,9 +11,9 @@ from . import IDField, StringField, DateField, BoolField, ListField, TupleField
 
 class Admin(Base):
     _table = 'admins'
-    _primary_key = '_id'
+    _primary_key = 'admin_id'
 
-    _id = IDField()
+    admin_id = IDField(raw_field_key='_id')
     enabled = BoolField()
 
     @classmethod
@@ -38,10 +38,9 @@ class Admin(Base):
 
 class Person(Base):
     _table = 'persons'
-    _primary_key = '_id'
+    _primary_key = 'person_id'
 
-    _id = IDField()
-
+    person_id = IDField(raw_field_key='_id')
     social_id = StringField()
     name = StringField()
     birthday = DateField()
