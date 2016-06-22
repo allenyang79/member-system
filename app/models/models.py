@@ -8,12 +8,12 @@ from app.db import db
 from . import Base
 from . import IDField, StringField, DateField, BoolField, ListField, TupleField
 
+
 class Admin(Base):
     _table = 'admins'
     _primary_key = '_id'
 
     _id = IDField()
-    password = StringField()
     enabled = BoolField()
 
     @classmethod

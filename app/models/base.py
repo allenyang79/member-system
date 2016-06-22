@@ -39,10 +39,18 @@ class Field(object):
     field_key = None
     raw_field_key = None
 
-    def __init__(self, raw_field_key=None, default_value=None, allow_none=True):
+    def __init__(self, raw_field_key=None, default_value=None, allow_none=True, allow_encode=True):
+        """
+        :param str raw_field_key:
+        :param str default_value:
+        :param bool allow_none:
+        :param bool allow_encode: it will not encode on instance.to_dict
+
+        """
         self.raw_field_key = raw_field_key
         self.default_value = default_value
         self.allow_none = allow_none
+        self.allow_encode = allow_encode
 
     def __get__(self, instance, cls):
         if instance:
@@ -70,7 +78,7 @@ class Field(object):
 
     # process value in/out of db
     def value_default(self, instance):
-        """The default value of this field."""
+        """ The default value of this field."""
         return self.default_value
 
     def value_in(self, instance, value):
@@ -78,11 +86,11 @@ class Field(object):
         return value
 
     def value_out(self, instance, value):
-        """The value from instance._attrs to external"""
+        """ The value from instance._attrs to external"""
         return value
 
     def encode(self, instance):
-        """ encode external value to another data type that json.dumps can process. """
+        """ Encode external value to another data type that json.dumps can process. """
         if hasattr(instance, self.field_key):
             return getattr(instance, self.field_key)  # _attrs[self.raw_field_key]
         return None
@@ -96,8 +104,10 @@ class Field(object):
 
 
 class IDField(Field):
-    def __init__(self, raw_field_key='_id'):
-        super(IDField, self).__init__(raw_field_key=raw_field_key, allow_none=False)
+    def __init__(self, raw_field_key='_id', allow_none=False, **kw):
+        kw['raw_field_key'] = raw_field_key
+        kw['allow_none'] = allow_none
+        super(IDField, self).__init__(**kw)
 
     def is_new(self, instance):
         if self.raw_field_key not in instance._attrs:
@@ -111,8 +121,10 @@ class IDField(Field):
 
 
 class StringField(Field):
-    def __init__(self, raw_field_key=None, default_value='', allow_none=True):
-        super(StringField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
+    def __init__(self, **kw):
+        if 'default_value' not in kw:
+            kw['default_value'] = ''
+        super(StringField, self).__init__(**kw)
 
     def value_in(self, instance, value):
         return str(value)
@@ -122,8 +134,10 @@ class StringField(Field):
 
 
 class BoolField(Field):
-    def __init__(self, raw_field_key=None, default_value=False, allow_none=True):
-        super(BoolField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
+    def __init__(self, **kw):
+        if 'default_value' not in kw:
+            kw['default_value'] = False
+        super(BoolField, self).__init__(**kw)
 
     def value_in(self, instance, value):
         return bool(value)
@@ -133,8 +147,10 @@ class BoolField(Field):
 
 
 class IntField(Field):
-    def __init__(self, raw_field_key=None, default_value=0, allow_none=True):
-        super(IntField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
+    def __init__(self, **kw):
+        if 'default_value' not in kw:
+            kw['default_value'] = 0
+        super(IntField, self).__init__(**kw)
 
     def value_in(self, instance, value):
         return int(value)
@@ -144,10 +160,13 @@ class IntField(Field):
 
 
 class DateField(Field):
-    def __init__(self, raw_field_key=None, default_value=None, allow_none=True):
-        if default_value is None:
-            default_value = datetime.datetime(1900, 1, 1).replace(minute=0, hour=0, second=0, microsecond=0)
-        super(DateField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
+    def __init__(self, **kw):
+        """ DateField
+            :param datetime default_value: default is datetime.datetime(1900, 1, 1).replace(minute=0, hour=0, second=0, microsecond=0)
+        """
+        if 'default_value' not in kw:
+            kw['default_value'] = datetime.datetime(1900, 1, 1).replace(minute=0, hour=0, second=0, microsecond=0)
+        super(DateField, self).__init__(**kw)
 
     def value_in(self, instance, value):
         if isinstance(value, datetime.date):
@@ -171,25 +190,31 @@ class DateField(Field):
 
 
 class ListField(Field):
-    def __init__(self, raw_field_key=None, default_value=None, allow_none=True):
-        if default_value is None:
-            default_value = []
-        super(ListField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
+    def __init__(self, **kw):
+        """ ListField.
+        """
+        if 'default_value' in kw:
+            raise ModelDeclareError('ListField\'s default_value show overwrite on value_default method')
+        super(ListField, self).__init__(**kw)
 
     def value_in(self, instance, value):
         return list(value)
 
     def value_default(self, instance):
-        """The default value of this field."""
+        """ Return a new list for default."""
         return []
 
 
 class TupleField(Field):
-    def __init__(self, raw_field_key=None, default_value=None, allow_none=True, np=None):
+
+    def __init__(self, np, **kw):
+        """ TupleField.
+            :param namedtuple np: ex: namedtuple('Point', ['x', 'y'], verbose=True)
+        """
         if not np:
             raise ModelDeclareError('Declare a tuple field without namedtuple `np`.')
-        super(TupleField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
-        self.np = np  # namedtuple('Point', ['x', 'y'], verbose=True)
+        super(TupleField, self).__init__(**kw)
+        self.np = np
 
     def value_in(self, instance, value):
         return value.__dict__
@@ -354,7 +379,7 @@ class Base(object):
 
     @classmethod
     def get_one(cls, _id=None):
-        row = db[cls._table].find_one({'_id': _id})
+        row = db[cls._table].find_one({'_id': _id}, projection={field.raw_field_key: True for field in cls._config.values()})
         return cls(row)
 
     @classmethod
@@ -372,7 +397,7 @@ class Base(object):
         # self._attrs.update(_attrs)
         for k, v in values.items():
             if k not in self._config:
-                raise ModelError('init model instance with unfield value.')
+                raise ModelError('init `%s` instance with unfield key,value (%s, %s).' % (type(self), k, v))
             setattr(self, k, v)
 
     def is_new(self):
