@@ -6,8 +6,6 @@ import sys
 from flask import Flask, g
 from flask import request, jsonify
 
-
-
 import app.config as config
 import app.utils as utils
 import app.auth as auth
@@ -84,7 +82,6 @@ def main():
 
     @main_app.route('/')
     @main_app.route('/index')
-    @am.add_whitelist
     def index():
         return {
             'success': True,
@@ -92,17 +89,18 @@ def main():
 
 
     @main_app.route('/login', methods=['POST'])
-    @am.add_whitelist
     def login():
         payload = request.json
         if Admin.login(payload['username'], payload['password']):
-            resp = am.login(payload['username'])
+
+            resp = am.login_user({'username': payload['username']})
             resp.data = json.dumps({'success': True, 'message': 'login success'})
             return resp
         return {'success': False, 'message': 'login fail'}, 403
 
 
     @main_app.route('/user/me')
+    @am.login_required
     def user_me():
         #me = g.me
         return {
@@ -111,7 +109,6 @@ def main():
         }
 
     @main_app.route('/error')
-    @am.add_whitelist
     def rasie_error():
         raise InvalidError('error', 400)
 
