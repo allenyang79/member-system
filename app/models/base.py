@@ -37,22 +37,35 @@ class ModelParserError(InvalidError):
 class Field(object):
     """Decalre a propery for Model"""
     field_key = None
+    raw_field_key = None
 
-    def __init__(self, default_value=None):
+    def __init__(self, raw_field_key=None, default_value=None, allow_none=True):
+        self.raw_field_key = raw_field_key
         self.default_value = default_value
+        self.allow_none = allow_none
 
     def __get__(self, instance, cls):
         if instance:
-            if self.field_key not in instance._attrs:
-                instance._attrs[self.field_key] = self.value_default(instance)
-            return self.value_out(instance, instance._attrs[self.field_key])
+            if self.raw_field_key not in instance._attrs:
+                instance._attrs[self.raw_field_key] = self.value_default(instance)
+            if instance._attrs[self.raw_field_key] is None:
+                return None
+            return self.value_out(instance, instance._attrs[self.raw_field_key])
         return self
 
     def __set__(self, instance, value):
-        instance._attrs[self.field_key] = self.value_in(instance, value)
+        if value is None:
+            instance._attrs[self.raw_field_key] = None
+        else:
+            instance._attrs[self.raw_field_key] = self.value_in(instance, value)
 
     def register(self, cls, field_key):
+        """ Bind the property name with model cls.
+            When declare complete. this function will call by Model's Meta. and bind by the property name.
+        """
         self.field_key = field_key
+        if self.raw_field_key is None:
+            self.raw_field_key = field_key
         cls._config[field_key] = self
 
     # process value in/out of db
@@ -68,20 +81,28 @@ class Field(object):
         """The value from instance._attrs to external"""
         return value
 
-    def encode(self, value):
+    def encode(self, instance):
         """ encode external value to another data type that json.dumps can process. """
-        return value
+        if hasattr(instance, self.field_key):
+            return getattr(instance, self.field_key)  # _attrs[self.raw_field_key]
+        return None
 
-    def decode(self, value):
+    def decode(self, payload):
         """ decode external value from another data type that json.loads can process. """
-        return value
+        if self.field_key in payload:
+            return payload[self.field_key]
+        else:
+            return None
 
 
 class IDField(Field):
+    def __init__(self, raw_field_key='_id'):
+        super(IDField, self).__init__(raw_field_key=raw_field_key, allow_none=False)
+
     def is_new(self, instance):
-        if self.field_key not in instance._attrs:
+        if self.raw_field_key not in instance._attrs:
             return True
-        if not instance._attrs[self.field_key]:
+        if not instance._attrs[self.raw_field_key]:
             return True
         return False
 
@@ -90,8 +111,8 @@ class IDField(Field):
 
 
 class StringField(Field):
-    def __init__(self, default_value=''):
-        self.default_value = default_value
+    def __init__(self, raw_field_key=None, default_value='', allow_none=True):
+        super(StringField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
 
     def value_in(self, instance, value):
         return str(value)
@@ -101,8 +122,8 @@ class StringField(Field):
 
 
 class BoolField(Field):
-    def __init__(self, default_value=False):
-        self.default_value = default_value
+    def __init__(self, raw_field_key=None, default_value=False, allow_none=True):
+        super(BoolField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
 
     def value_in(self, instance, value):
         return bool(value)
@@ -112,8 +133,8 @@ class BoolField(Field):
 
 
 class IntField(Field):
-    def __init__(self, default_value=0):
-        self.default_value = default_value
+    def __init__(self, raw_field_key=None, default_value=0, allow_none=True):
+        super(IntField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
 
     def value_in(self, instance, value):
         return int(value)
@@ -123,8 +144,10 @@ class IntField(Field):
 
 
 class DateField(Field):
-    def __init__(self, default_value=datetime.datetime(1900, 1, 1).replace(minute=0, hour=0, second=0, microsecond=0)):
-        self.default_value = default_value
+    def __init__(self, raw_field_key=None, default_value=None, allow_none=True):
+        if default_value is None:
+            default_value = datetime.datetime(1900, 1, 1).replace(minute=0, hour=0, second=0, microsecond=0)
+        super(DateField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
 
     def value_in(self, instance, value):
         if isinstance(value, datetime.date):
@@ -136,14 +159,23 @@ class DateField(Field):
     def value_out(self, instance, value):
         return value.date()
 
-    def encode(self, value):
-        return value.strftime('%Y-%m-%d')
+    def encode(self, instance):
+        if hasattr(instance, self.field_key):
+            return getattr(instance, self.field_key).strftime('%Y-%m-%d')
+        return None
 
-    def decode(self, value):
-        return datetime.datetime.strptime(value, '%Y-%m-%d')
+    def decode(self, payload):
+        if self.field_key in payload:
+            return datetime.datetime.strptime(payload[self.field_key], '%Y-%m-%d')
+        return None
 
 
 class ListField(Field):
+    def __init__(self, raw_field_key=None, default_value=None, allow_none=True):
+        if default_value is None:
+            default_value = []
+        super(ListField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
+
     def value_in(self, instance, value):
         return list(value)
 
@@ -153,9 +185,11 @@ class ListField(Field):
 
 
 class TupleField(Field):
-    def __init__(self, np, kw):
+    def __init__(self, raw_field_key=None, default_value=None, allow_none=True, np=None):
+        if not np:
+            raise ModelDeclareError('Declare a tuple field without namedtuple `np`.')
+        super(TupleField, self).__init__(raw_field_key=raw_field_key, default_value=default_value, allow_none=allow_none)
         self.np = np  # namedtuple('Point', ['x', 'y'], verbose=True)
-        self.default_value = kw  # self.np(**kw)
 
     def value_in(self, instance, value):
         return value.__dict__
@@ -165,11 +199,15 @@ class TupleField(Field):
             return self.np(**value)
         return None
 
-    def encode(self, value):
-        return value.__dict__
+    def encode(self, instance):
+        if hasattr(instance, self.field_key):
+            return getattr(instance, self.field_key).__dict__
+        return None
 
-    def decode(self, value):
-        return self.np(**value)
+    def decode(self, payload):
+        if self.field_key in payload:
+            return self.np(**payload[self.field_key])
+        return None
 
 
 class ClassReadonlyProperty(object):
@@ -330,9 +368,9 @@ class Base(object):
         cursor = cls._find(query)
         return FetchResult(cls, cursor)
 
-    def __init__(self, _attrs={}):
+    def __init__(self, values={}):
         # self._attrs.update(_attrs)
-        for k, v in _attrs.items():
+        for k, v in values.items():
             if k not in self._config:
                 raise ModelError('init model instance with unfield value.')
             setattr(self, k, v)
@@ -369,31 +407,20 @@ class Base(object):
         else:
             cls._update_one({'_id': self.get_id()}, payload)
 
-    def to_dict(self, use_raw=False):
+    def to_dict(self):
         """ return a dict, that can be dump to json.
-        :param bool use_raw: if True, it will return a copy of self._attrs.
-
         """
-        if use_raw:
-            return copy.deepcopy(self._attrs)
-
-        ret = {
+        result = {
             '__class__': type(self).__name__
         }
         for field_key, field in self._config.iteritems():
-            if field_key in self._attrs:
-                ret[field_key] = field.encode(getattr(self, field_key))
-        return ret
+            result[field_key] = field.encode(self)
+        return result
 
-    def update(self, payload, use_raw=False):
+    def update(self, payload):
         """update a value from external dict by json.loads()."""
-        if use_raw:
-            self._attrs.update(payload)
-            return self
-
         for field_key, field in self._config.iteritems():
-            if field_key in payload:
-                setattr(self, field_key, field.decode(payload[field_key]))
+            setattr(self, field_key, field.decode(payload))
         return self
 
     @classmethod
@@ -401,7 +428,6 @@ class Base(object):
         if '__class__' in payload and payload['__class__'] == cls.__name__:
             raw = {}
             for field_key, field in cls._config.iteritems():
-                if field_key in payload:
-                    raw[field_key] = field.decode(payload[field_key])
+                raw[field_key] = field.decode(payload)
             return cls(raw)
         raise ModelParserError('can not parse `%s` to `%s` instance.' % (payload, cls.__name__))

@@ -19,16 +19,18 @@ class TestDB(unittest.TestCase):
             db[col_name].drop()
 
     def test_db(self):
+        """Test basic db operator."""
         db.tests.insert_one({'name': 'test-name'})
         r = db.tests.find_one({'name': 'test-name'})
         self.assertEqual(r['name'], 'test-name')
 
     def test_operator(self):
+        """Test declare a ModelClass."""
         class Foo(Base):
-            _table = ClassReadonlyProperty('foo')
-            _primary_key = ClassReadonlyProperty('_id')
+            _table = ClassReadonlyProperty('foos')
+            _primary_key = ClassReadonlyProperty('foo_id')
 
-            _id = IDField()
+            foo_id = IDField('_id')
             str_field = StringField()
             default_str_field = StringField(default_value='hello')
 
@@ -36,9 +38,9 @@ class TestDB(unittest.TestCase):
             int_field = IntField()
             bool_field = BoolField()
             list_field = ListField()
-            tuple_field = TupleField(namedtuple('Point',['x', 'y'], False), {'x': 0, 'y':0})
+            tuple_field = TupleField(np=namedtuple('Point', ['x', 'y'], False), default_value={'x': 0, 'y': 0})
 
-        for field_key in ('_id', 'str_field', 'default_str_field', 'date_field', 'int_field', 'bool_field', 'list_field', 'tuple_field'):
+        for field_key in ('foo_id', 'str_field', 'default_str_field', 'date_field', 'int_field', 'bool_field', 'list_field', 'tuple_field'):
             self.assertIn(field_key, Foo._config)
 
         class Bar(Base):
@@ -47,20 +49,19 @@ class TestDB(unittest.TestCase):
 
         self.assertNotEqual(Foo._config, Bar._config)
 
-
-        self.assertEqual(Foo._primary_key, '_id')
-        self.assertEqual(Foo._table, 'foo')
+        self.assertEqual(Foo._primary_key, 'foo_id')
+        self.assertEqual(Foo._table, 'foos')
+        self.assertEqual(Foo.foo_id.raw_field_key, '_id')
 
         foo = Foo()
         self.assertEqual(foo._config, Foo._config)
-
         self.assertTrue(foo.is_new())
         self.assertEqual(foo.default_str_field, 'hello')
 
-        foo = Foo.create({'str_field': 'bar'})
+        foo = Foo.create({'str_field': 'any string'})
         self.assertFalse(foo.is_new())
-        self.assertIsNotNone(foo._id)
-        self.assertEqual(foo.str_field, 'bar')
+        self.assertIsNotNone(foo.foo_id)
+        self.assertEqual(foo.str_field, 'any string')
         self.assertEqual(foo.int_field, 0)
 
         foo.int_field = 100
@@ -80,24 +81,18 @@ class TestDB(unittest.TestCase):
         self.assertEqual(foo.list_field, [0, 1, 2, 3])
 
         foo.save()
-        _foo = db.foo.find_one({'_id': foo._id})
+        _foo = db.foos.find_one({'_id': foo.foo_id})
         self.assertEqual(_foo, foo._attrs)
 
-
         _foo = foo.to_dict()
-
         self.assertEqual('Foo', _foo['__class__'])
-        self.assertEqual(foo._id, _foo['_id'])
+        self.assertEqual(foo.foo_id, _foo['foo_id'])
         self.assertEqual(foo.int_field, _foo['int_field'])
-        self.assertEqual(foo.date_field.strftime('%Y-%m-%d'), _foo['date_field'])
-
-        # it should be encode
-        json.dumps(_foo)
-
 
         json_str = '''{
             "__class__": "Foo",
-            "_id": "1234",
+            "foo_id": "1234",
+            "str_field": "anything",
             "int_field": 123,
             "date_field": "2014-12-13",
             "bool_field": false,
@@ -106,13 +101,14 @@ class TestDB(unittest.TestCase):
                 "y": 2
             }
         }'''
-        _foo = Foo.from_dict(json.loads(json_str))
-        self.assertEqual(_foo._id, '1234')
-        self.assertEqual(_foo.int_field, 123)
-        self.assertEqual(_foo.bool_field, False)
-        self.assertEqual(_foo.date_field, datetime.date(2014, 12, 13))
-        Point = namedtuple('Point',['x', 'y'], False)
-        self.assertEqual(_foo.tuple_field, Point(x=1,y=2))
+        foo = Foo.from_dict(json.loads(json_str))
+
+        self.assertEqual(foo.foo_id, '1234')
+        self.assertEqual(foo.int_field, 123)
+        self.assertEqual(foo.bool_field, False)
+        self.assertEqual(foo.date_field, datetime.date(2014, 12, 13))
+        Point = namedtuple('Point', ['x', 'y'], False)
+        self.assertEqual(foo.tuple_field, Point(x=1, y=2))
 
         with self.assertRaises(ModelError) as ctx:
             foo = Foo.create({'other': 'other'})
@@ -127,7 +123,8 @@ class TestDB(unittest.TestCase):
                 _id_2 = IDField()
 
     def test_fetch(self):
-        return
+        """Test fetch by Model."""
+
         class Foo3(Base):
             _table = ClassReadonlyProperty('foo')
             _primary_key = ClassReadonlyProperty('_id')
@@ -161,9 +158,6 @@ class TestDB(unittest.TestCase):
         self.assertTrue(r[0].age > 20)
         self.assertTrue(r[1].age > 20)
 
-
         r = Foo3.fetch({'name': 'John'})
         self.assertEqual(r.total, 1)
         self.assertEqual(r[0].name, 'John')
-
-
