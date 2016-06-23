@@ -277,10 +277,10 @@ class InstanceReadonlyProperty(object):
 
 
 class Meta(type):
-    def __init__(cls, cls_name, cls_bases, cls_dict):
-        # cls = type.__new__(meta_cls, cls_name, cls_bases, cls_dict)
+    def __new__(meta_cls, cls_name, cls_bases, cls_dict):
+        cls = type.__new__(meta_cls, cls_name, cls_bases, cls_dict)
         if cls_name == 'Base':
-            return
+            return cls
         primary_key_exists = False
         for field_key, field in cls_dict.items():
             if isinstance(field, Field):
@@ -295,6 +295,7 @@ class Meta(type):
 
             if cls._primary_key is None:
                 raise ModelDeclareError('declare Moedl without IDField.')
+        return cls
 
 
 class FetchResult(object):

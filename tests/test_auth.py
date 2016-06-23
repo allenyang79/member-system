@@ -81,18 +81,17 @@ class TestServer(unittest.TestCase):
         r = self.client.get('/user/me')
         self.assertEqual(r.status_code, 200)
         result = json.loads(r.data)['data']
-        self.assertEqual(result['_id'], 'admin')
+        self.assertEqual(result['admin_id'], 'admin')
+
 
     def test_unauth(self):
         """Test unauth."""
-        return
 
         r = self.client.get('/user/me')
         self.assertEqual(r.status_code, 403)
 
     def test_raise_error(self):
         """Test raise error."""
-        return
 
         r = self.client.get('/error')
         self.assertEqual(r.status_code, 400)

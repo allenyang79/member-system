@@ -24,6 +24,11 @@ class TestDB(unittest.TestCase):
         r = db.tests.find_one({'name': 'test-name'})
         self.assertEqual(r['name'], 'test-name')
 
+
+        db.tests.insert_one({'_id': '_id', 'a': 'A', 'b': 'B', 'c':'c'})
+        print [x for x in db.tests.find({}, ['a'])]
+
+
     def test_operator(self):
         """Test declare a ModelClass."""
         class Foo(Base):
@@ -44,7 +49,7 @@ class TestDB(unittest.TestCase):
             self.assertIn(field_key, Foo._config)
 
         class Bar(Base):
-            _table = ClassReadonlyProperty('bar')
+            _table = ClassReadonlyProperty('bars')
             _primary_key = ClassReadonlyProperty('_id')
 
         self.assertNotEqual(Foo._config, Bar._config)
@@ -158,9 +163,9 @@ class TestDB(unittest.TestCase):
 
         r = Foo3.fetch({'_id': 'id_2'})
         self.assertEqual(r.total, 1)
-        self.assertItemsEqual(r[0].foo_id, 'id_2')
-        self.assertItemsEqual(r[0].name, 'Mary')
-        self.assertItemsEqual(r[0].age, 20)
+        self.assertEqual(r[0]._id, 'id_2')
+        self.assertEqual(r[0].name, 'Mary')
+        self.assertEqual(r[0].age, 20)
 
         r = Foo3.fetch({'age': {'$gt': 20}})
         self.assertEqual(r.total, 2)
@@ -170,3 +175,18 @@ class TestDB(unittest.TestCase):
         r = Foo3.fetch({'name': 'John'})
         self.assertEqual(r.total, 1)
         self.assertEqual(r[0].name, 'John')
+
+    def test_inheant(self):
+        """test inheant a exists model."""
+        class Foo4(Base):
+            _table = ClassReadonlyProperty('foo4s')
+            _primary_key = ClassReadonlyProperty('_id')
+            _id = IDField()
+
+        class Foo4Inhant(Foo4):
+            name = StringField()
+
+        #print Foo4._config
+        #print Foo4Inhant._config
+        #foo_1 = Foo4.create({'_id': '_id_0'})
+        #foo_2 = Foo4Inhant.create({'_id': '_id_1', 'name': 'hello'})

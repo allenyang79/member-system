@@ -34,7 +34,7 @@ class TestServer(unittest.TestCase):
         r = self.client.post('/person/create', data=json.dumps(post), content_type='application/json')
         self.assertEqual(r.status_code, 200)
 
-        person_id = json.loads(r.data)['data']['_id']
+        person_id = json.loads(r.data)['data']['person_id']
         r = self.client.get('/person/one/%s' % person_id)
         self.assertEqual(r.status_code, 200)
 
@@ -101,11 +101,11 @@ class TestServer(unittest.TestCase):
 
         result = json.loads(r.data)['data']
         for row in result:
-            if row['_id'] == 'id_1':
+            if row['person_id'] == 'id_1':
                 self.assertEqual(row['name'], 'Bill')
-            elif row['_id'] == 'id_2':
+            elif row['person_id'] == 'id_2':
                 self.assertEqual(row['name'], 'John')
-            elif row['_id'] == 'id_3':
+            elif row['person_id'] == 'id_3':
                 self.assertEqual(row['name'], 'Mary')
 
         r = self.client.get('/person/list?term=john')
@@ -126,7 +126,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
 
         result = json.loads(r.data)['data']
-        self.assertEqual(result['_id'], 'id_1')
+        self.assertEqual(result['person_id'], 'id_1')
         self.assertEqual(result['name'], 'Bill')
 
     def test_group(self):
