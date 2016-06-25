@@ -3,29 +3,38 @@
 import json
 import sys
 
-from flask import Flask, g
+from flask import Flask
+from flask import current_app, g
 from flask import request, jsonify
 
 import app.config as config
 import app.utils as utils
 import app.auth as auth
 
+from app.logger import logger
+
 from app.error import InvalidError
 from app.auth import AuthManager
 from app.view import blueprint
 from app.models.models import Admin
 
+
 class CustomFlask(Flask):
     def make_response(self, rv):
         if isinstance(rv, (dict, list)):
-            rv = json.dumps(rv, cls=self.json_encoder)
+            return super(CustomFlask, self).make_response((json.dumps(rv, cls=self.json_encoder), 200, {
+                'Content-type': 'application/json; charset=utf-8'
+            }))
         elif isinstance(rv, tuple) and isinstance(rv[0], (list, dict)):
-            rv = (json.dumps(rv[0], cls=self.json_encoder),) + rv[1:]
-            #(None,) * (len(rv)-1)
+            resp = super(CustomFlask, self).make_response((json.dumps(rv[0], cls=self.json_encoder),) + rv[1:])
+            resp.headers['Content-type'] = 'application/json; charset=utf-8'
+            return resp
 
         return super(CustomFlask, self).make_response(rv)
 
+
 def main():
+    logger.info("main start")
     config.load_config()
 
     main_app = CustomFlask(__name__)
@@ -38,7 +47,6 @@ def main():
     am = auth.init_auth(main_app)
 
     main_app.register_blueprint(blueprint)
-
 
     # init admin
     admin = Admin.get_one('admin')
@@ -53,11 +61,10 @@ def main():
     #   CORS OPTIONS request fix
     ###############################################
 
-
     @main_app.before_request
     def option_autoreply():
         if request.method == 'OPTIONS':
-            resp = current_main_app.make_default_options_response()
+            resp = current_app.make_default_options_response()
             h = resp.headers
             # Allow the origin which made the XHR
             h['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
@@ -84,11 +91,14 @@ def main():
         response.headers['Access-Control-Max-Age'] = 1728000
         return response
 
-
     @main_app.errorhandler(InvalidError)
     def handle_invalid_error(error):
+        if config.config['MODE'] == 'production':
+            if isinstance(error, auth.UnauthorizedError):
+                return {'success': False, 'message': 'Unauthorized.'}, error.status_code
+            elif isinstance(error, auth.LoginFailError):
+                return {'success': False, 'message': 'Login fail.'}, error.status_code
         return error.to_dict(), error.status_code
-
 
     @main_app.route('/')
     @main_app.route('/index')
@@ -97,16 +107,37 @@ def main():
             'success': True,
         }
 
-
     @main_app.route('/login', methods=['POST'])
     def login():
         payload = request.json
-        if Admin.login(payload['username'], payload['password']):
 
-            resp = am.login_user({'username': payload['username']})
-            resp.data = json.dumps({'success': True, 'message': 'login success'})
+        username = str(payload.get('username', '')).strip()
+        password = str(payload.get('password', '')).strip()
+        if not username or not password:
+            return {'success': False, 'message': 'login fail'}, 403
+
+        if Admin.login(username, password):
+            resp = am.login_user({'username': username})
+
+            resp.data = json.dumps({
+                'success': True,
+                'message': 'login success',
+                'data': am.me().to_dict()
+            })
             return resp
         return {'success': False, 'message': 'login fail'}, 403
+
+    @main_app.route('/logout')
+    def logout():
+        resp = am.logout_user()
+        resp.data = json.dumps({
+            'success': True,
+            'message': 'logout success',
+            'data': None
+        })
+        print "===="
+        print resp
+        return resp
 
 
     @main_app.route('/user/me')
@@ -115,7 +146,7 @@ def main():
         #me = g.me
         return {
             'success': True,
-            'data': auth.me().to_dict()
+            'data': am.me().to_dict()
         }
 
     @main_app.route('/error')

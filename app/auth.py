@@ -79,12 +79,23 @@ class AuthManager(object):
             payload['exp'] = int(time.time()) + self.app.config.get('JWT_EXPIRE_TIME', 86400)
         token = jwt.encode(payload, self.app.config['JWT_SECRET'], algorithm='HS256', headers={'salt': binascii.hexlify(os.urandom(16))})
         resp = flask.make_response()
+        resp.headers['content-type'] = 'application/json; charset=utf-8'
         resp.set_cookie('jwt', token, expires=payload['exp'])
+
+
+        #username = payload['username']
+        if getattr(self, '_load_user') and hasattr(self._load_user, '__call__'):
+            flask.g.me = self._load_user(payload)
+
         return resp
 
     def logout_user(self):
-        flask.request.set_cookie('jwt', None, expires=0)
-        return True
+        resp = flask.make_response()
+        resp.headers['content-type'] = 'application/json; charset=utf-8'
+        resp.set_cookie('jwt', '', expires=0)
+        return resp
+        #flask.request.set_cookie('jwt', None, expires=0)
+        #return True
 
     def auth(self):
         try:
@@ -102,6 +113,8 @@ class AuthManager(object):
             #username = payload['username']
             if getattr(self, '_load_user') and hasattr(self._load_user, '__call__'):
                 flask.g.me = self._load_user(payload)
+            else:
+                raise Exception('please implement load_user to mixin.')
             return True, None
         except jwt.exceptions.DecodeError as e:
             return False, 'Jwt deocode fail.'
@@ -143,15 +156,15 @@ class AuthManager(object):
         return decorated_view
 
 
-def me(silence=False):
-    if flask.has_request_context():
-        if hasattr(flask.g, 'me'):
-            return flask.g.me
+    def me(self, silence=False):
+        if flask.has_request_context():
+            if hasattr(flask.g, 'me'):
+                return flask.g.me
 
-    if not silence:
-        raise UnauthorizedError('current user has not login.')
+        if not silence:
+            raise UnauthorizedError('current user has not login.')
 
-    return None
+        return None
 
 
 def init_auth(app):
