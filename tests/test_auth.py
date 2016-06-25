@@ -54,16 +54,29 @@ class TestServer(unittest.TestCase):
             'success': True
         })
 
+    def test_default_admin(self):
+        """Test default admin."""
+        admin = db.admins.find_one({'_id': config['DEFAULT_ADMIN_USERNAME']})
+        self.assertTrue(admin)
+
+        post = {
+            'username': config['DEFAULT_ADMIN_USERNAME'],
+            'password': config['DEFAULT_ADMIN_PASSWORD']
+        }
+        r = self.client.post('/login', data=json.dumps(post), content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        print json.dumps(r.data)
+
     def test_auth(self):
-        """Test auth."""
+
         db.admins.insert_many([{
-            '_id': 'admin',
+            '_id': 'john',
             'password': Admin.hash_password('1234'),
             'enabled': True
         }])
 
         post = {
-            'username': 'admin',
+            'username': 'john',
             'password': '1234'
         }
         r = self.client.post('/login', data=json.dumps(post), content_type='application/json')
@@ -76,13 +89,12 @@ class TestServer(unittest.TestCase):
                 encoded = value
 
         payload = jwt.decode(encoded, self.main_app.config['JWT_SECRET'], algorithms=['HS256'])
-        self.assertEqual(payload['username'], 'admin')
+        self.assertEqual(payload['username'], 'john')
 
         r = self.client.get('/user/me')
         self.assertEqual(r.status_code, 200)
         result = json.loads(r.data)['data']
-        self.assertEqual(result['admin_id'], 'admin')
-
+        self.assertEqual(result['admin_id'], 'john')
 
     def test_unauth(self):
         """Test unauth."""

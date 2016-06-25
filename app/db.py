@@ -13,7 +13,7 @@ _client = None
 def _init_db():
     client = pymongo.MongoClient(config['DB_HOST'], config['DB_PORT'])
     db = client[config['DB_NAME']]
-    return client, _db
+    return client, db
 
 
 def find_db():

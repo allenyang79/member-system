@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 import os
 import sys
 import argparse
@@ -29,6 +30,7 @@ def _parse_args():
     You can mock this function for unittest.
     """
     args = parser.parse_args()
+    return args
 
 def load_config():
     global config
@@ -37,7 +39,6 @@ def load_config():
         return
 
     args = _parse_args()
-    print "load_config", args
     m = __import__('configs.default', fromlist=['default'])
     config.update(m.config)
 

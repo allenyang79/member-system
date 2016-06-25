@@ -39,6 +39,16 @@ def main():
 
     main_app.register_blueprint(blueprint)
 
+
+    # init admin
+    admin = Admin.get_one('admin')
+    if not admin:
+        admin = Admin.create({
+            'admin_id': config.config['DEFAULT_ADMIN_USERNAME'],
+            'enabled': True,
+        })
+        admin.update_password(config.config['DEFAULT_ADMIN_PASSWORD'])
+
     ###############################################
     #   CORS OPTIONS request fix
     ###############################################

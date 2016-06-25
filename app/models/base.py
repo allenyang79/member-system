@@ -34,6 +34,11 @@ class ModelParserError(InvalidError):
     pass
 
 
+class ModelSaveError(InvalidError):
+    """Base model operator error."""
+    pass
+
+
 class Field(object):
     """Decalre a propery for Model"""
     field_key = None
@@ -108,13 +113,6 @@ class IDField(Field):
         kw['raw_field_key'] = raw_field_key
         kw['allow_none'] = allow_none
         super(IDField, self).__init__(**kw)
-
-    def is_new(self, instance):
-        if self.raw_field_key not in instance._attrs:
-            return True
-        if not instance._attrs[self.raw_field_key]:
-            return True
-        return False
 
     def generate_id(self, instance):
         return str(bson.ObjectId())
@@ -382,7 +380,9 @@ class Base(object):
     def get_one(cls, _id=None, raw=None):
         if _id and raw is None:
             raw = db[cls._table].find_one({'_id': _id}, projection={field.raw_field_key: True for field in cls._config.values()})
-        elif raw:
+            if not raw:
+                return None
+        elif raw and _id is None:
             pass
         else:
             raise ModelInvaldError('get_one arguemtn errors.')
@@ -393,9 +393,9 @@ class Base(object):
 
     @classmethod
     def create(cls, payload={}):
-        person = cls(payload)
-        person.save()
-        return person
+        instance = cls(payload)
+        instance.save()
+        return instance
 
     @classmethod
     def fetch(cls, query={}, sort=None, offset=None, limit=None):
@@ -411,10 +411,14 @@ class Base(object):
 
     def is_new(self):
         primary_field = self._config[self._primary_key]
-        return primary_field.is_new(self)
+        if primary_field.raw_field_key not in self._attrs:
+            return True
+        elif db[self._table].find_one({'_id': self.get_id()}, ('_id')):
+            return False
+        return True
 
     def get_id(self):
-        return self._attrs['_id']
+        return getattr(self, self._primary_key)
 
     def save(self, allow_fields=None):
         """Save _attrs in to database.
@@ -429,17 +433,26 @@ class Base(object):
             fields = set(allow_fields) & fields
 
         for k in fields:
-            if self.is_new() and isinstance(self._config[k], IDField):
-                pass  # pass if primary_key
-            if k in self._attrs:
+            # if self.is_new() and isinstance(self._config[k], IDField):
+            #    pass  # pass if primary_key
+            if k == self._primary_key:
+                continue
+            elif k in self._attrs:
                 payload[k] = self._attrs[k]
 
         if self.is_new():
             primary_field = self._config[self._primary_key]
-            payload['_id'] = primary_field.generate_id(self)
-            self._attrs['_id'] = cls._insert_one(payload)
+            if getattr(self, self._primary_key):
+                payload['_id'] = self._attrs[primary_field.raw_field_key]
+            else:
+                payload['_id'] = self._attrs[primary_field.raw_field_key] = primary_field.generate_id(self)
+            if cls._insert_one(payload):
+                return True
+
         else:
-            cls._update_one({'_id': self.get_id()}, payload)
+            if cls._update_one({'_id': self.get_id()}, payload):
+                return True
+        raise ModelSaveError('can not save instance of `%s`' % type(self))
 
     def to_dict(self):
         """ return a dict, that can be dump to json.

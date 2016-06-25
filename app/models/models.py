@@ -35,6 +35,14 @@ class Admin(Base):
             password = password.encode('utf-8')
         return pbkdf2_sha256.verify(password, encoded)
 
+    def update_password(self, password):
+        result = db[self._table].update_one({'_id': self.get_id()}, {
+            '$set': {'password': self.hash_password(password)}
+        })
+        if result.matched_count:
+            return True
+        raise error.InvalidError('update password fail')
+
 
 class Person(Base):
     _table = 'persons'
