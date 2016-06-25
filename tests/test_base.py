@@ -26,24 +26,24 @@ class TestDB(unittest.TestCase):
 
 
         db.tests.insert_one({'_id': '_id', 'a': 'A', 'b': 'B', 'c':'c'})
-        print [x for x in db.tests.find({}, ['a'])]
 
 
     def test_operator(self):
         """Test declare a ModelClass."""
+        Point = namedtuple('Point', ['x', 'y'], False)
         class Foo(Base):
             _table = ClassReadonlyProperty('foos')
             _primary_key = ClassReadonlyProperty('foo_id')
 
             foo_id = IDField('_id')
             str_field = StringField()
-            default_str_field = StringField(default_value='hello')
-
+            default_str_field = StringField(default='hello')
             date_field = DateField()
             int_field = IntField()
             bool_field = BoolField()
             list_field = ListField()
-            tuple_field = TupleField(np=namedtuple('Point', ['x', 'y'], False), default_value={'x': 0, 'y': 0})
+
+            tuple_field = TupleField(np=Point, default=lambda:Point(x=0,y=0))
 
         for field_key in ('foo_id', 'str_field', 'default_str_field', 'date_field', 'int_field', 'bool_field', 'list_field', 'tuple_field'):
             self.assertIn(field_key, Foo._config)
@@ -61,7 +61,7 @@ class TestDB(unittest.TestCase):
         foo = Foo()
         self.assertEqual(foo._config, Foo._config)
         self.assertTrue(foo.is_new())
-        self.assertEqual(foo.default_str_field, 'hello')
+        self.assertEqual(foo.default_str_field, None)
 
         foo = Foo.create({'str_field': 'any string'})
         self.assertFalse(foo.is_new())
@@ -75,7 +75,7 @@ class TestDB(unittest.TestCase):
         foo.int_field = '200'
         self.assertEqual(foo.int_field, 200)
 
-        self.assertIsInstance(foo.date_field, datetime.date)
+        self.assertIsNone(foo.date_field)
         foo.date_field = datetime.datetime(2016, 12, 01, 1, 2, 3, 4)
         self.assertEqual(foo.date_field, datetime.date(2016, 12, 1))
         with self.assertRaises(ModelInvaldError):
@@ -94,15 +94,16 @@ class TestDB(unittest.TestCase):
         self.assertEqual(foo.foo_id, _foo['foo_id'])
         self.assertEqual(foo.int_field, _foo['int_field'])
 
-        foo = Foo({
+        foo = Foo.create({
             'foo_id': 'foo_id',
             'str_field': 'anything',
-            'date_field': None
+            #'date_field': None
         })
         _foo = foo.to_jsonify()
+
         self.assertEqual(_foo['foo_id'], 'foo_id')
         self.assertEqual(_foo['str_field'], 'anything')
-        self.assertEqual(_foo['date_field'], None)
+        self.assertNotIn('date_field', _foo)
 
         json_str = '''{
             "__class__": "Foo",

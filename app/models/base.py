@@ -44,25 +44,27 @@ class Field(object):
     field_key = None
     raw_field_key = None
 
-    def __init__(self, raw_field_key=None, default_value=None, allow_none=True, allow_encode=True):
+    def __init__(self, raw_field_key=None, **kw):
         """
         :param str raw_field_key:
-        :param str default_value:
-        :param bool allow_none:
-        :param bool allow_encode: it will not encode on instance.to_dict
+        :param default: value or function
 
         """
         self.raw_field_key = raw_field_key
-        self.default_value = default_value
-        self.allow_none = allow_none
-        self.allow_encode = allow_encode
+
+        if 'default' in kw:
+            self.default = kw['default']
 
     def __get__(self, instance, cls):
         if instance:
             if self.raw_field_key not in instance._attrs:
-                instance._attrs[self.raw_field_key] = self.value_default(instance)
-            if instance._attrs[self.raw_field_key] is None:
                 return None
+                # if self.default is not None:
+                #    # if has `default`, then use this `default` to generate value
+                #    if hasattr(self.default, '__call__'):
+                #        instance._attrs[self.raw_field_key] = self.value_in(instance, self.default())
+                #    else:
+                #        instance._attrs[self.raw_field_key] = self.value_in(instance, self.default)
             return self.value_out(instance, instance._attrs[self.raw_field_key])
         return self
 
@@ -80,11 +82,6 @@ class Field(object):
         if self.raw_field_key is None:
             self.raw_field_key = field_key
         cls._config[field_key] = self
-
-    # process value in/out of db
-    def value_default(self, instance):
-        """ The default value of this field."""
-        return self.default_value
 
     def value_in(self, instance, value):
         """The value from external to instance._attrs"""
@@ -110,18 +107,17 @@ class Field(object):
 
 class IDField(Field):
     def __init__(self, raw_field_key='_id', allow_none=False, **kw):
+        if 'default' not in kw:
+            kw['default'] = lambda: str(bson.ObjectId())
         kw['raw_field_key'] = raw_field_key
         kw['allow_none'] = allow_none
         super(IDField, self).__init__(**kw)
 
-    def generate_id(self, instance):
-        return str(bson.ObjectId())
-
 
 class StringField(Field):
     def __init__(self, **kw):
-        if 'default_value' not in kw:
-            kw['default_value'] = ''
+        if 'default' not in kw:
+            kw['default'] = ''
         super(StringField, self).__init__(**kw)
 
     def value_in(self, instance, value):
@@ -133,8 +129,8 @@ class StringField(Field):
 
 class BoolField(Field):
     def __init__(self, **kw):
-        if 'default_value' not in kw:
-            kw['default_value'] = False
+        if 'default' not in kw:
+            kw['default'] = False
         super(BoolField, self).__init__(**kw)
 
     def value_in(self, instance, value):
@@ -146,8 +142,8 @@ class BoolField(Field):
 
 class IntField(Field):
     def __init__(self, **kw):
-        if 'default_value' not in kw:
-            kw['default_value'] = 0
+        if 'default' not in kw:
+            kw['default'] = 0
         super(IntField, self).__init__(**kw)
 
     def value_in(self, instance, value):
@@ -160,10 +156,10 @@ class IntField(Field):
 class DateField(Field):
     def __init__(self, **kw):
         """ DateField
-            :param datetime default_value: default is datetime.datetime(1900, 1, 1).replace(minute=0, hour=0, second=0, microsecond=0)
+            :param datetime default: default can be like ex: lamda: datetime.date.today()
         """
-        if 'default_value' not in kw:
-            kw['default_value'] = datetime.datetime(1900, 1, 1).replace(minute=0, hour=0, second=0, microsecond=0)
+        # if 'default' not in kw:
+        #    kw['default'] = datetime.datetime.now().replace(minute=0, hour=0, second=0, microsecond=0)
         super(DateField, self).__init__(**kw)
 
     def value_in(self, instance, value):
@@ -178,7 +174,6 @@ class DateField(Field):
 
     def encode(self, instance):
         if hasattr(instance, self.field_key):
-            #print self.field_key, getattr(instance, self.field_key)
             val = getattr(instance, self.field_key)
             if val:
                 return val.strftime('%Y-%m-%d')
@@ -194,16 +189,12 @@ class ListField(Field):
     def __init__(self, **kw):
         """ ListField.
         """
-        if 'default_value' in kw:
-            raise ModelDeclareError('ListField\'s default_value show overwrite on value_default method')
+        if 'default' not in kw:
+            kw['default'] = lambda: []
         super(ListField, self).__init__(**kw)
 
     def value_in(self, instance, value):
         return list(value)
-
-    def value_default(self, instance):
-        """ Return a new list for default."""
-        return []
 
 
 class TupleField(Field):
@@ -226,7 +217,7 @@ class TupleField(Field):
         return None
 
     def encode(self, instance):
-        if hasattr(instance, self.field_key):
+        if hasattr(instance._attrs, self.raw_field_key):
             return getattr(instance, self.field_key).__dict__
         return None
 
@@ -396,6 +387,13 @@ class Base(object):
 
     @classmethod
     def create(cls, payload={}):
+        for field_key, field in cls._config.iteritems():
+            if field_key not in payload:
+                if hasattr(field, 'default'):
+                    if hasattr(field.default, '__call__'):
+                        payload[field_key] = field.default()
+                    else:
+                        payload[field_key] = field.default
         instance = cls(payload)
         instance.save()
         return instance
@@ -405,18 +403,27 @@ class Base(object):
         cursor = cls._find(query)
         return FetchResult(cls, cursor)
 
-    def __init__(self, values={}):
+    def __init__(self, payload={}):
+        """ Do not use Foo() to create new instance.
+        instate cls.create or cls.get_one() is better.
+        """
+        for field_key, value in payload.items():
+            if field_key in self._config:
+                setattr(self, field_key, value)
+            else:
+                raise ModelError('create a `%s` instance with unfield key, value (%s, %s).' % (type(self).__name__, field_key, value))
+
         # self._attrs.update(_attrs)
-        for k, v in values.items():
-            if k not in self._config:
-                raise ModelError('create a `%s` instance with unfield key,value (%s, %s).' % (type(self), k, v))
-            setattr(self, k, v)
+        # for k, v in values.items():
+        #    if k not in self._config:
+        #        raise ModelError('create a `%s` instance with unfield key,value (%s, %s).' % (type(self), k, v))
+        #    setattr(self, k, v)
 
     def is_new(self):
-        primary_field = self._config[self._primary_key]
-        if primary_field.raw_field_key not in self._attrs:
-            return True
-        elif db[self._table].find_one({'_id': self.get_id()}, ('_id')):
+        #primary_field = self._config[self._primary_key]
+        #if primary_field.raw_field_key not in self._attrs:
+        #    return True
+        if db[self._table].find_one({'_id': self.get_id()}, ('_id')):
             return False
         return True
 
@@ -445,10 +452,7 @@ class Base(object):
 
         if self.is_new():
             primary_field = self._config[self._primary_key]
-            if getattr(self, self._primary_key):
-                payload['_id'] = self._attrs[primary_field.raw_field_key]
-            else:
-                payload['_id'] = self._attrs[primary_field.raw_field_key] = primary_field.generate_id(self)
+            payload['_id'] = self._attrs[primary_field.raw_field_key]
             if cls._insert_one(payload):
                 return True
 
@@ -464,10 +468,11 @@ class Base(object):
             '__class__': type(self).__name__
         }
         for field_key, field in self._config.iteritems():
-            result[field_key] = field.encode(self)
+            if field.raw_field_key in self._attrs:
+                result[field_key] = field.encode(self)
         return result
 
-    #def update(self, payload):
+    # def update(self, payload):
     #    """update a value from external dict by json.loads()."""
     #    for field_key, field in self._config.iteritems():
     #        setattr(self, field_key, field.decode(payload))

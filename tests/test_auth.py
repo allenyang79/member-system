@@ -65,7 +65,6 @@ class TestServer(unittest.TestCase):
         }
         r = self.client.post('/login', data=json.dumps(post), content_type='application/json')
         self.assertEqual(r.status_code, 200)
-        print json.dumps(r.data)
 
     def test_auth(self):
 

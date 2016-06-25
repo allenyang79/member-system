@@ -67,10 +67,10 @@ class Person(Base):
     education = StringField()
     job = StringField()
 
-    register_date = StringField()
-    unregister_date = StringField()
+    register_date = DateField()
+    unregister_date = DateField()
 
-    baptize_date = StringField()
+    baptize_date = DateField()
     baptize_priest = StringField()
 
     gifts = ListField()     # ['aa', 'bb', 'cc']
