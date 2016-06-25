@@ -18,7 +18,7 @@ def person_one(_id):
     person = Person.get_one(_id)
     return {
         'success': True,
-        'data': person.to_dict()
+        'data': person.to_jsonify()
     }
 
 
@@ -50,11 +50,11 @@ def person_one_update(_id):
         'events',
         'note'
     )
-    person.update_from_dict(payload, allow_field)
+    person.update_from_jsonify(payload, allow_field)
     person.save()
     return {
         'success': True,
-        'data': person.to_dict()
+        'data': person.to_jsonify()
     }
 
 
@@ -90,7 +90,7 @@ def person_list():
     result = Person.fetch(query)
     data = []
     for person in result:
-        data.append(person.to_dict())
+        data.append(person.to_jsonify())
 
     return {
         'success': True,
@@ -105,7 +105,7 @@ def person_create():
 
     return {
         'success': True,
-        'data': p.to_dict()
+        'data': p.to_jsonify()
     }
 
 ######################
@@ -119,7 +119,7 @@ def group_create():
     group = Group.create(payload)
     return {
         'success': True,
-        'data': group.to_dict()
+        'data': group.to_jsonify()
     }
 
 
@@ -130,12 +130,12 @@ def group_one_update(_id):
         raise InvalidError('Group(%s) is not existed.' % _id)
 
     payload = request.json
-    group.update(payload)
+    group.update_from_jsonify(payload)
     group.save()
 
     return {
         'success': True,
-        'data': group.to_dict()
+        'data': group.to_jsonify()
     }
 
 
@@ -144,7 +144,7 @@ def group_one(_id):
     group = Group.get_one(_id)
     return {
         'success': True,
-        'data': group.to_dict()
+        'data': group.to_jsonify()
     }
 
 
@@ -153,7 +153,7 @@ def group_list():
     result = Group.fetch()
     data = []
     for group in result:
-        data.append(group.to_dict())
+        data.append(group.to_jsonify())
 
     return {
         'success': True,

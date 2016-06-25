@@ -123,7 +123,7 @@ def main():
             resp.data = json.dumps({
                 'success': True,
                 'message': 'login success',
-                'data': am.me().to_dict()
+                'data': am.me().to_jsonify()
             })
             return resp
         return {'success': False, 'message': 'login fail'}, 403
@@ -145,7 +145,7 @@ def main():
         #me = g.me
         return {
             'success': True,
-            'data': am.me().to_dict()
+            'data': am.me().to_jsonify()
         }
 
     @main_app.route('/error')

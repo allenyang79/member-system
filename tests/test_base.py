@@ -89,10 +89,20 @@ class TestDB(unittest.TestCase):
         _foo = db.foos.find_one({'_id': foo.foo_id})
         self.assertEqual(_foo, foo._attrs)
 
-        _foo = foo.to_dict()
+        _foo = foo.to_jsonify()
         self.assertEqual('Foo', _foo['__class__'])
         self.assertEqual(foo.foo_id, _foo['foo_id'])
         self.assertEqual(foo.int_field, _foo['int_field'])
+
+        foo = Foo({
+            'foo_id': 'foo_id',
+            'str_field': 'anything',
+            'date_field': None
+        })
+        _foo = foo.to_jsonify()
+        self.assertEqual(_foo['foo_id'], 'foo_id')
+        self.assertEqual(_foo['str_field'], 'anything')
+        self.assertEqual(_foo['date_field'], None)
 
         json_str = '''{
             "__class__": "Foo",
@@ -106,7 +116,7 @@ class TestDB(unittest.TestCase):
                 "y": 2
             }
         }'''
-        foo = Foo.from_dict(json.loads(json_str))
+        foo = Foo.from_jsonify(json.loads(json_str))
 
         self.assertEqual(foo.foo_id, '1234')
         self.assertEqual(foo.int_field, 123)

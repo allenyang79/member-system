@@ -457,7 +457,7 @@ class Base(object):
                 return True
         raise ModelSaveError('can not save instance of `%s`' % type(self))
 
-    def to_dict(self):
+    def to_jsonify(self):
         """ return a dict, that can be dump to json.
         """
         result = {
@@ -467,13 +467,13 @@ class Base(object):
             result[field_key] = field.encode(self)
         return result
 
-    def update(self, payload):
-        """update a value from external dict by json.loads()."""
-        for field_key, field in self._config.iteritems():
-            setattr(self, field_key, field.decode(payload))
-        return self
+    #def update(self, payload):
+    #    """update a value from external dict by json.loads()."""
+    #    for field_key, field in self._config.iteritems():
+    #        setattr(self, field_key, field.decode(payload))
+    #    return self
 
-    def update_from_dict(self, payload, allow_fields=None):
+    def update_from_jsonify(self, payload, allow_fields=None):
         """update a value from external dict by json.loads()."""
         for field_key, field in self._config.iteritems():
             if allow_fields:
@@ -484,7 +484,7 @@ class Base(object):
         return self
 
     @classmethod
-    def from_dict(cls, payload):
+    def from_jsonify(cls, payload):
         if '__class__' in payload and payload['__class__'] == cls.__name__:
             raw = {}
             for field_key, field in cls._config.iteritems():
