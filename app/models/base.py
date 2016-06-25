@@ -171,14 +171,17 @@ class DateField(Field):
             return datetime.datetime.combine(value, datetime.datetime.min.time())
         elif isinstance(value, datetime.datetime):
             return value.replace(minute=0, hour=0, second=0, microsecond=0)
-        raise ModelInvaldError('`DateField` only accept `date` value')
+        raise ModelInvaldError('`DateField` only accept `date` value, not `%s`' % repr(value))
 
     def value_out(self, instance, value):
         return value.date()
 
     def encode(self, instance):
         if hasattr(instance, self.field_key):
-            return getattr(instance, self.field_key).strftime('%Y-%m-%d')
+            #print self.field_key, getattr(instance, self.field_key)
+            val = getattr(instance, self.field_key)
+            if val:
+                return val.strftime('%Y-%m-%d')
         return None
 
     def decode(self, payload):
@@ -468,6 +471,16 @@ class Base(object):
         """update a value from external dict by json.loads()."""
         for field_key, field in self._config.iteritems():
             setattr(self, field_key, field.decode(payload))
+        return self
+
+    def update_from_dict(self, payload, allow_fields=None):
+        """update a value from external dict by json.loads()."""
+        for field_key, field in self._config.iteritems():
+            if allow_fields:
+                if field_key in allow_fields:
+                    setattr(self, field_key, field.decode(payload))
+            else:
+                setattr(self, field_key, field.decode(payload))
         return self
 
     @classmethod

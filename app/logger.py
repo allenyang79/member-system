@@ -9,7 +9,7 @@ import logging.handlers  # import  RotatingFileHandler
 
 logger = logging.getLogger()
 
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.NOTSET)
 formatter = logging.Formatter(
     '%(asctime)s %(filename)s:%(lineno)d\t[%(thread)8.8s][%(levelname)5.5s] - %(message)s',
     datefmt="%Y-%m-%d %H:%M:%S"

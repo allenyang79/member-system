@@ -93,6 +93,7 @@ def main():
 
     @main_app.errorhandler(InvalidError)
     def handle_invalid_error(error):
+        logger.error(error)
         if config.config['MODE'] == 'production':
             if isinstance(error, auth.UnauthorizedError):
                 return {'success': False, 'message': 'Unauthorized.'}, error.status_code
@@ -135,8 +136,6 @@ def main():
             'message': 'logout success',
             'data': None
         })
-        print "===="
-        print resp
         return resp
 
 

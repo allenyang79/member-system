@@ -29,7 +29,7 @@ def person_one_update(_id):
         raise InvalidError('Person(%s) is not existed.' % _id)
 
     payload = request.json
-    for field in (
+    allow_field = (
         'name',
         'phone_0',
         'phone_1',
@@ -49,9 +49,8 @@ def person_one_update(_id):
         'groups',
         'events',
         'note'
-    ):
-        if field in payload:
-            setattr(person, field, payload[field])
+    )
+    person.update_from_dict(payload, allow_field)
     person.save()
     return {
         'success': True,
