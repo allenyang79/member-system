@@ -61,7 +61,7 @@ class TestDB(unittest.TestCase):
         foo = Foo()
         self.assertEqual(foo._config, Foo._config)
         self.assertTrue(foo.is_new())
-        self.assertEqual(foo.default_str_field, None)
+        self.assertEqual(foo.default_str_field, 'hello')
 
         foo = Foo.create({'str_field': 'any string'})
         self.assertFalse(foo.is_new())
@@ -93,6 +93,7 @@ class TestDB(unittest.TestCase):
         self.assertEqual('Foo', _foo['__class__'])
         self.assertEqual(foo.foo_id, _foo['foo_id'])
         self.assertEqual(foo.int_field, _foo['int_field'])
+        self.assertEqual(foo.list_field, _foo['list_field'])
 
         foo = Foo.create({
             'foo_id': 'foo_id',

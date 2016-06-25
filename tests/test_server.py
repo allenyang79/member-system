@@ -72,7 +72,6 @@ class TestServer(unittest.TestCase):
         }
         r = self.client.post('/person/id_0/relation', data=json.dumps(post), content_type='application/json')
         self.assertEqual(r.status_code, 200)
-
         for row in db.persons.find():
             if row['_id'] == 'id_0':
                 self.assertIn({'rel': 'family', 'person_id': 'id_1'}, row['relations'])

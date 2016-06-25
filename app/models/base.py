@@ -7,12 +7,14 @@ import sys
 import weakref
 import datetime
 import bson
-
+import logging
 from collections import namedtuple
 
 from app.error import InvalidError
 from app.db import db
 
+
+logger = logging.getLogger()
 
 class ModelError(InvalidError):
     """Base model operator error."""
@@ -56,17 +58,19 @@ class Field(object):
             self.default = kw['default']
 
     def __get__(self, instance, cls):
-        if instance:
+        if not instance:
+            return self
+        else:
             if self.raw_field_key not in instance._attrs:
-                return None
-                # if self.default is not None:
-                #    # if has `default`, then use this `default` to generate value
-                #    if hasattr(self.default, '__call__'):
-                #        instance._attrs[self.raw_field_key] = self.value_in(instance, self.default())
-                #    else:
-                #        instance._attrs[self.raw_field_key] = self.value_in(instance, self.default)
+                if hasattr(self, 'default'):
+                   # if has `default`, then use this `default` to generate value
+                   if hasattr(self.default, '__call__'):
+                       instance._attrs[self.raw_field_key] = self.value_in(instance, self.default())
+                   else:
+                       instance._attrs[self.raw_field_key] = self.value_in(instance, self.default)
+                else:
+                    return None
             return self.value_out(instance, instance._attrs[self.raw_field_key])
-        return self
 
     def __set__(self, instance, value):
         if value is None:
@@ -91,18 +95,17 @@ class Field(object):
         """ The value from instance._attrs to external"""
         return value
 
-    def encode(self, instance):
+    def encode(self, instance, target):
         """ Encode external value to another data type that json.dumps can process. """
-        if hasattr(instance, self.field_key):
-            return getattr(instance, self.field_key)  # _attrs[self.raw_field_key]
-        return None
+        if self.raw_field_key in instance._attrs:
+            target[self.field_key] = getattr(instance, self.field_key)
 
-    def decode(self, payload):
+    def decode(self, instance, payload):
         """ decode external value from another data type that json.loads can process. """
         if self.field_key in payload:
-            return payload[self.field_key]
-        else:
-            return None
+            value = payload[self.field_key]
+            setattr(instance, self.field_key, value)
+
 
 
 class IDField(Field):
@@ -172,17 +175,20 @@ class DateField(Field):
     def value_out(self, instance, value):
         return value.date()
 
-    def encode(self, instance):
-        if hasattr(instance, self.field_key):
-            val = getattr(instance, self.field_key)
-            if val:
-                return val.strftime('%Y-%m-%d')
-        return None
+    def encode(self, instance, target):
+        if self.raw_field_key in instance._attrs:
+            target[self.field_key] = getattr(instance, self.field_key).strftime('%Y-%m-%d')
 
-    def decode(self, payload):
+    def decode(self, instance, payload):
         if self.field_key in payload:
-            return datetime.datetime.strptime(payload[self.field_key], '%Y-%m-%d')
-        return None
+            try:
+                value = datetime.datetime.strptime(payload[self.field_key], '%Y-%m-%d').date()
+                logger.info('%s %s', self.field_key, value)
+                setattr(instance, self.field_key, value)
+            except Exception as e:
+                logger.warning(e)
+                logger.warning('can not decode `%s` `%s`', self.field_key, payload[self.field_key])
+
 
 
 class ListField(Field):
@@ -216,15 +222,18 @@ class TupleField(Field):
             return self.np(**value)
         return None
 
-    def encode(self, instance):
-        if hasattr(instance._attrs, self.raw_field_key):
-            return getattr(instance, self.field_key).__dict__
-        return None
+    def encode(self, instance, target):
+        if self.raw_field_key in instance._attrs:
+            target[self.field_key] = getattr(instance, self.field_key).__dict__
 
-    def decode(self, payload):
+    def decode(self, instance, payload):
         if self.field_key in payload:
-            return self.np(**payload[self.field_key])
-        return None
+            try:
+                value = self.np(**payload[self.field_key])
+                setattr(instance, self.field_key, value)
+            except Exception as e:
+                logger.warning(e)
+                logger.warning('can not decode `%s` `%s`', self.field_key, payload[self.field_key])
 
 
 class ClassReadonlyProperty(object):
@@ -386,6 +395,11 @@ class Base(object):
         return instance
 
     @classmethod
+    def fetch(cls, query={}, sort=None, offset=None, limit=None):
+        cursor = cls._find(query)
+        return FetchResult(cls, cursor)
+
+    @classmethod
     def create(cls, payload={}):
         for field_key, field in cls._config.iteritems():
             if field_key not in payload:
@@ -397,11 +411,6 @@ class Base(object):
         instance = cls(payload)
         instance.save()
         return instance
-
-    @classmethod
-    def fetch(cls, query={}, sort=None, offset=None, limit=None):
-        cursor = cls._find(query)
-        return FetchResult(cls, cursor)
 
     def __init__(self, payload={}):
         """ Do not use Foo() to create new instance.
@@ -421,7 +430,7 @@ class Base(object):
 
     def is_new(self):
         #primary_field = self._config[self._primary_key]
-        #if primary_field.raw_field_key not in self._attrs:
+        # if primary_field.raw_field_key not in self._attrs:
         #    return True
         if db[self._table].find_one({'_id': self.get_id()}, ('_id')):
             return False
@@ -468,31 +477,21 @@ class Base(object):
             '__class__': type(self).__name__
         }
         for field_key, field in self._config.iteritems():
-            if field.raw_field_key in self._attrs:
-                result[field_key] = field.encode(self)
+            field.encode(self, result)
         return result
 
-    # def update(self, payload):
-    #    """update a value from external dict by json.loads()."""
-    #    for field_key, field in self._config.iteritems():
-    #        setattr(self, field_key, field.decode(payload))
-    #    return self
 
     def update_from_jsonify(self, payload, allow_fields=None):
         """update a value from external dict by json.loads()."""
         for field_key, field in self._config.iteritems():
-            if allow_fields:
-                if field_key in allow_fields:
-                    setattr(self, field_key, field.decode(payload))
-            else:
-                setattr(self, field_key, field.decode(payload))
+            field.decode(self, payload)
         return self
 
     @classmethod
     def from_jsonify(cls, payload):
         if '__class__' in payload and payload['__class__'] == cls.__name__:
-            raw = {}
+            instance = cls({})
             for field_key, field in cls._config.iteritems():
-                raw[field_key] = field.decode(payload)
-            return cls(raw)
+                field.decode(instance, payload)
+            return instance
         raise ModelParserError('can not parse `%s` to `%s` instance.' % (payload, cls.__name__))

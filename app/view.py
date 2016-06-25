@@ -3,7 +3,7 @@ import re
 
 from flask import Blueprint#, render_template, abort
 from flask import request, jsonify
-
+from app.logger import logger
 from app.error import InvalidError
 from app.models.models import Person, Group
 
