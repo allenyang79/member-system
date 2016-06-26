@@ -73,6 +73,11 @@ class Field(object):
             return self.value_out(instance, instance._attrs[self.raw_field_key])
 
     def __set__(self, instance, value):
+        """ set value to instance's field.
+
+        TODO: how to handle none value???
+
+        """
         if value is None:
             instance._attrs[self.raw_field_key] = None
         else:
@@ -109,11 +114,10 @@ class Field(object):
 
 
 class IDField(Field):
-    def __init__(self, raw_field_key='_id', allow_none=False, **kw):
+    def __init__(self, raw_field_key='_id', **kw):
         if 'default' not in kw:
             kw['default'] = lambda: str(bson.ObjectId())
         kw['raw_field_key'] = raw_field_key
-        kw['allow_none'] = allow_none
         super(IDField, self).__init__(**kw)
 
 
@@ -183,7 +187,6 @@ class DateField(Field):
         if self.field_key in payload:
             try:
                 value = datetime.datetime.strptime(payload[self.field_key], '%Y-%m-%d').date()
-                logger.info('%s %s', self.field_key, value)
                 setattr(instance, self.field_key, value)
             except Exception as e:
                 logger.warning(e)

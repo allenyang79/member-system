@@ -19,18 +19,17 @@ class TestDB(unittest.TestCase):
             db[col_name].drop()
 
     def test_db(self):
-        """Test basic db operator."""
+        """ Test basic db operator. """
         db.tests.insert_one({'name': 'test-name'})
         r = db.tests.find_one({'name': 'test-name'})
         self.assertEqual(r['name'], 'test-name')
 
-
-        db.tests.insert_one({'_id': '_id', 'a': 'A', 'b': 'B', 'c':'c'})
-
+        db.tests.insert_one({'_id': '_id', 'a': 'A', 'b': 'B', 'c': 'c'})
 
     def test_operator(self):
-        """Test declare a ModelClass."""
+        """ Test declare a ModelClass. """
         Point = namedtuple('Point', ['x', 'y'], False)
+
         class Foo(Base):
             _table = ClassReadonlyProperty('foos')
             _primary_key = ClassReadonlyProperty('foo_id')
@@ -43,7 +42,7 @@ class TestDB(unittest.TestCase):
             bool_field = BoolField()
             list_field = ListField()
 
-            tuple_field = TupleField(np=Point, default=lambda:Point(x=0,y=0))
+            tuple_field = TupleField(np=Point, default=lambda: Point(x=0, y=0))
 
         for field_key in ('foo_id', 'str_field', 'default_str_field', 'date_field', 'int_field', 'bool_field', 'list_field', 'tuple_field'):
             self.assertIn(field_key, Foo._config)
@@ -78,33 +77,91 @@ class TestDB(unittest.TestCase):
         self.assertIsNone(foo.date_field)
         foo.date_field = datetime.datetime(2016, 12, 01, 1, 2, 3, 4)
         self.assertEqual(foo.date_field, datetime.date(2016, 12, 1))
-        with self.assertRaises(ModelInvaldError):
-            foo.date_field = 1234
 
         self.assertEqual(foo.list_field, [])
         foo.list_field = [0, 1, 2, 3]
         self.assertEqual(foo.list_field, [0, 1, 2, 3])
 
+        foo.str_field = None
+        self.assertEqual(foo._attrs['str_field'], None)
         foo.save()
+
         _foo = db.foos.find_one({'_id': foo.foo_id})
         self.assertEqual(_foo, foo._attrs)
 
-        _foo = foo.to_jsonify()
-        self.assertEqual('Foo', _foo['__class__'])
-        self.assertEqual(foo.foo_id, _foo['foo_id'])
-        self.assertEqual(foo.int_field, _foo['int_field'])
-        self.assertEqual(foo.list_field, _foo['list_field'])
+
+
+
+
+        with self.assertRaises(ModelInvaldError):
+            foo.date_field = 1234
+
+        with self.assertRaises(ModelError) as ctx:
+            foo = Foo.create({'other': 'other'})
+
+
+    def test_jsonify_encode(self):
+        """ Test jsonify encode to dict for json dumps."""
+
+        Point = namedtuple('Point', ['x', 'y'], False)
+
+        class Foo(Base):
+            _table = ClassReadonlyProperty('foos')
+            _primary_key = ClassReadonlyProperty('foo_id')
+
+            foo_id = IDField('_id')
+            str_field = StringField(default='this is default')
+            date_field = DateField()
+            int_field = IntField()
+            bool_field = BoolField()
+            list_field = ListField()
+            tuple_field = TupleField(np=Point)
 
         foo = Foo.create({
-            'foo_id': 'foo_id',
-            'str_field': 'anything',
-            #'date_field': None
+            'int_field': 100,
+            'list_field': [1, 2, 3],
         })
-        _foo = foo.to_jsonify()
 
-        self.assertEqual(_foo['foo_id'], 'foo_id')
-        self.assertEqual(_foo['str_field'], 'anything')
+        _foo = foo.to_jsonify()
+        self.assertEqual('Foo', _foo['__class__'])
+        self.assertEqual(_foo['foo_id'], foo.foo_id,)
+        self.assertEqual(_foo['str_field'], 'this is default')
+        self.assertEqual(_foo['int_field'], 100)
+        self.assertEqual(_foo['list_field'], [1, 2, 3])
+        self.assertNotIn('tuple_field', _foo)
         self.assertNotIn('date_field', _foo)
+
+        Point = namedtuple('Point', ['x', 'y'], False)
+
+        class Foo(Base):
+            _table = ClassReadonlyProperty('foos')
+            _primary_key = ClassReadonlyProperty('foo_id')
+
+            foo_id = IDField('_id')
+            list_field = ListField()
+            tuple_field = TupleField(np=Point, default=lambda: Point(x=1, y=2))
+
+        foo = Foo.create({})
+        _foo = foo.to_jsonify()
+        self.assertEqual(_foo['tuple_field'], {'x': 1, 'y': 2})
+        self.assertEqual(_foo['list_field'], [])
+
+
+    def test_jsonify_decode(self):
+        """ Test jsonify decode from dict for json loads."""
+
+        Point = namedtuple('Point', ['x', 'y'], False)
+        class Foo(Base):
+            _table = ClassReadonlyProperty('foos')
+            _primary_key = ClassReadonlyProperty('foo_id')
+
+            foo_id = IDField('_id')
+            str_field = StringField(default='this is default')
+            date_field = DateField()
+            int_field = IntField()
+            bool_field = BoolField()
+            list_field = ListField()
+            tuple_field = TupleField(np=Point)
 
         json_str = '''{
             "__class__": "Foo",
@@ -127,23 +184,23 @@ class TestDB(unittest.TestCase):
         Point = namedtuple('Point', ['x', 'y'], False)
         self.assertEqual(foo.tuple_field, Point(x=1, y=2))
 
-        with self.assertRaises(ModelError) as ctx:
-            foo = Foo.create({'other': 'other'})
+    def test_declare_error(self):
+        """ Test by error case."""
 
         with self.assertRaises(ModelDeclareError) as ctx:
-            class Foo1(Base):
+            class Foo(Base):
                 pass
 
         with self.assertRaises(ModelDeclareError) as ctx:
-            class Foo2(Base):
+            class Foo(Base):
                 _id = IDField()
                 _id_2 = IDField()
 
     def test_fetch(self):
         """Test fetch by Model."""
 
-        class Foo3(Base):
-            _table = ClassReadonlyProperty('foo3s')
+        class Foo(Base):
+            _table = ClassReadonlyProperty('foos')
             _primary_key = ClassReadonlyProperty('_id')
 
             _id = IDField()
@@ -167,38 +224,23 @@ class TestDB(unittest.TestCase):
             'name': 'Tommy',
             'age': 40
         }]
-        db.foo3s.insert_many(foos)
+        db.foos.insert_many(foos)
 
-        r = Foo3.fetch({})
+        r = Foo.fetch({})
         self.assertEqual(r.total, 4)
         self.assertItemsEqual([f.name for f in r], [f['name'] for f in foos])
 
-        r = Foo3.fetch({'_id': 'id_2'})
+        r = Foo.fetch({'_id': 'id_2'})
         self.assertEqual(r.total, 1)
         self.assertEqual(r[0]._id, 'id_2')
         self.assertEqual(r[0].name, 'Mary')
         self.assertEqual(r[0].age, 20)
 
-        r = Foo3.fetch({'age': {'$gt': 20}})
+        r = Foo.fetch({'age': {'$gt': 20}})
         self.assertEqual(r.total, 2)
         self.assertTrue(r[0].age > 20)
         self.assertTrue(r[1].age > 20)
 
-        r = Foo3.fetch({'name': 'John'})
+        r = Foo.fetch({'name': 'John'})
         self.assertEqual(r.total, 1)
         self.assertEqual(r[0].name, 'John')
-
-    def test_inheant(self):
-        """test inheant a exists model."""
-        class Foo4(Base):
-            _table = ClassReadonlyProperty('foo4s')
-            _primary_key = ClassReadonlyProperty('_id')
-            _id = IDField()
-
-        class Foo4Inhant(Foo4):
-            name = StringField()
-
-        #print Foo4._config
-        #print Foo4Inhant._config
-        #foo_1 = Foo4.create({'_id': '_id_0'})
-        #foo_2 = Foo4Inhant.create({'_id': '_id_1', 'name': 'hello'})

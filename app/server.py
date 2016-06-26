@@ -34,7 +34,6 @@ class CustomFlask(Flask):
 
 
 def main():
-    logger.info("main start")
     config.load_config()
 
     main_app = CustomFlask(__name__)
@@ -93,7 +92,6 @@ def main():
 
     @main_app.errorhandler(InvalidError)
     def handle_invalid_error(error):
-        logger.error(error)
         if config.config['MODE'] == 'production':
             if isinstance(error, auth.UnauthorizedError):
                 return {'success': False, 'message': 'Unauthorized.'}, error.status_code
