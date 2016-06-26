@@ -108,8 +108,8 @@ class Person(Base):
 
 class Group(Base):
     _table = 'groups'
-    _primary_key = '_id'
+    _primary_key = 'group_id'
 
-    _id = IDField()
+    group_id = IDField()
     name = StringField()
     note = StringField()

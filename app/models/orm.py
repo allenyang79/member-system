@@ -128,7 +128,9 @@ class StringField(Field):
         super(StringField, self).__init__(**kw)
 
     def value_in(self, instance, value):
-        return str(value)
+        if isinstance(value, basestring):
+            return value
+        return "%s" % (value)
 
     def value_out(self, instance, value):
         return value

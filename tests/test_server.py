@@ -137,7 +137,7 @@ class TestServer(unittest.TestCase):
         r = self.client.post('/group/create', data=json.dumps(payload), content_type='application/json')
         self.assertEqual(r.status_code, 200)
         result = json.loads(r.data)['data']
-        group_id = result['_id']
+        group_id = result['group_id']
 
         _group = db.groups.find_one({'_id': group_id})
         self.assertEqual(_group['name'], payload['name'])
@@ -150,7 +150,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         result = json.loads(r.data)['data']
 
-        _group = db.groups.find_one({'_id': result['_id']})
+        _group = db.groups.find_one({'_id': result['group_id']})
         self.assertEqual(_group['name'], payload['name'])
 
     def test_group_list(self):
@@ -165,9 +165,9 @@ class TestServer(unittest.TestCase):
         r = self.client.get('/group/list')
         result = json.loads(r.data)['data']
         for row in result:
-            if row['_id'] == 'id_0':
+            if row['group_id'] == 'id_0':
                 self.assertEqual(row['name'], 'group-0')
-            elif row['_id'] == 'id_1':
+            elif row['group_id'] == 'id_1':
                 self.assertEqual(row['name'], 'group-1')
 
         r = self.client.get('/group/one/id_1')
